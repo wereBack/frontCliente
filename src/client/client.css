@@ -123,6 +123,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
   gap: 24px;
+  align-items: start;
 }
 
 .client-layout__map {
@@ -133,7 +134,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  min-height: clamp(420px, 65vh, 760px);
+  min-height: 0;
+  align-self: start;
 }
 
 .client-layout__panel {
@@ -285,16 +287,15 @@ body {
 
 .stand-map__shell {
   width: 100%;
-  height: 100%;
-  min-height: clamp(360px, 60vh, 720px);
+  height: auto;
+  min-height: 0;
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .stand-map__stage-wrapper {
   width: 100%;
-  height: 100%;
   border-radius: 16px;
   overflow: hidden;
   background: #f1f5f9;

@@ -18,14 +18,17 @@ const StandMap = ({ floor, statuses, selectedStandId, onSelect }: StandMapProps)
   const size = useElementSize(containerRef)
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
 
-  const scale = useMemo(() => {
-    const widthRatio = size.width / floor.dimensions.width
-    const heightRatio = size.height / floor.dimensions.height
-    return Math.min(widthRatio, heightRatio)
-  }, [size, floor.dimensions.height, floor.dimensions.width])
-
-  const stageWidth = Math.min(size.width, floor.dimensions.width * scale)
-  const stageHeight = Math.min(size.height, floor.dimensions.height * scale)
+  const aspectRatio = floor.dimensions.width / floor.dimensions.height
+  const stageDimensions = useMemo(() => {
+    const availableWidth = size.width
+    const idealHeight = availableWidth / aspectRatio
+    const viewportLimit =
+      typeof window !== 'undefined' ? Math.max(320, window.innerHeight * 0.7) : Number.POSITIVE_INFINITY
+    const height = Math.min(idealHeight, viewportLimit)
+    const scale = height / floor.dimensions.height
+    const width = floor.dimensions.width * scale
+    return { width, height, scale }
+  }, [size.width, aspectRatio, floor.dimensions.height, floor.dimensions.width])
 
   useEffect(() => {
     const img = new window.Image()
@@ -51,23 +54,23 @@ const StandMap = ({ floor, statuses, selectedStandId, onSelect }: StandMapProps)
     <div ref={containerRef} className="stand-map__shell">
       <div
         className="stand-map__stage-wrapper"
-        style={{ width: stageWidth, height: stageHeight }}
+        style={{ width: '100%', height: stageDimensions.height }}
       >
-        <Stage width={stageWidth} height={stageHeight}>
+        <Stage width={stageDimensions.width} height={stageDimensions.height}>
           <Layer listening={false}>
             {backgroundImage ? (
               <KonvaImage
                 image={backgroundImage}
-                width={floor.dimensions.width * scale}
-                height={floor.dimensions.height * scale}
+                width={floor.dimensions.width * stageDimensions.scale}
+                height={floor.dimensions.height * stageDimensions.scale}
                 listening={false}
               />
             ) : (
               <Rect
                 x={0}
                 y={0}
-                width={floor.dimensions.width * scale}
-                height={floor.dimensions.height * scale}
+                width={floor.dimensions.width * stageDimensions.scale}
+                height={floor.dimensions.height * stageDimensions.scale}
                 fill="#f4f5f7"
                 listening={false}
               />
@@ -86,19 +89,23 @@ const StandMap = ({ floor, statuses, selectedStandId, onSelect }: StandMapProps)
                   onTap={(event) => handleTouchSelect(event, stand)}
                 >
                   <Rect
-                    x={stand.shape.x * scale}
-                    y={stand.shape.y * scale}
-                    width={stand.shape.width * scale}
-                    height={stand.shape.height * scale}
+                    x={stand.shape.x * stageDimensions.scale}
+                    y={stand.shape.y * stageDimensions.scale}
+                    width={stand.shape.width * stageDimensions.scale}
+                    height={stand.shape.height * stageDimensions.scale}
                     cornerRadius={6}
                     fill={meta.bg}
                     stroke={isSelected ? '#0f172a' : meta.color}
                     strokeWidth={isSelected ? 3 : 2}
                   />
                   <Text
-                    x={stand.shape.x * scale}
-                    y={stand.shape.y * scale + stand.shape.height * scale / 2 - 9}
-                    width={stand.shape.width * scale}
+                    x={stand.shape.x * stageDimensions.scale}
+                    y={
+                      stand.shape.y * stageDimensions.scale +
+                      (stand.shape.height * stageDimensions.scale) / 2 -
+                      9
+                    }
+                    width={stand.shape.width * stageDimensions.scale}
                     text={stand.label}
                     fontSize={14}
                     fontStyle="600"
