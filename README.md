@@ -34,3 +34,5 @@ Interfaz independiente pensada para las empresas que necesitan revisar el plano 
 > - Toda la información vive en memoria; al refrescar la página se restablecen los valores mock iniciales.  
 > - Para llevar este front a producción sólo habría que reemplazar el store mock por llamadas reales al backend y sumar autenticación si el flujo lo requiere.
 
+
+//Comentario para molestar a coru
