@@ -20,6 +20,7 @@ export interface SpaceData {
     height: number;
     color: string;
     name: string;
+    zone_id?: string;
 }
 
 export interface ZoneData {

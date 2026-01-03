@@ -144,6 +144,29 @@ const apiToShapeFormat = (data: PlanoData['spaces'][0]): Stand => {
   }
 }
 
+// Helper to check if stand is inside a zone
+const isInsideZone = (stand: { x: number; y: number; width: number; height: number }, zone: { x: number; y: number; width: number; height: number }): boolean => {
+  // Check if stand center is inside zone
+  const standCenterX = stand.x + stand.width / 2
+  const standCenterY = stand.y + stand.height / 2
+  return (
+    standCenterX >= zone.x &&
+    standCenterX <= zone.x + zone.width &&
+    standCenterY >= zone.y &&
+    standCenterY <= zone.y + zone.height
+  )
+}
+
+// Helper to find containing zone for a stand
+const findContainingZone = (stand: ReturnType<typeof shapeToApiFormat>, zones: ReturnType<typeof shapeToApiFormat>[]): string | undefined => {
+  for (const zone of zones) {
+    if (isInsideZone(stand, zone)) {
+      return (zone as { id?: string }).id
+    }
+  }
+  return undefined
+}
+
 export const useStandStore = create<StandStore>((set, get) => ({
   // Plano state
   planoId: null,
@@ -176,17 +199,31 @@ export const useStandStore = create<StandStore>((set, get) => ({
     set({ isSaving: true })
 
     try {
+      // First prepare zones with temporary IDs for reference
+      const zonesWithIds = state.zones.map((zone, i) => ({
+        ...shapeToApiFormat(zone, i),
+        id: zone.id,
+        name: zone.label || `Zona ${i + 1}`,
+      }))
+
+      // Prepare stands with zone detection
+      const standsWithZones = state.stands.map((stand, i) => {
+        const standData = shapeToApiFormat(stand, i)
+        const containingZoneId = findContainingZone(standData, zonesWithIds)
+        return {
+          ...standData,
+          zone_id: containingZoneId,
+        }
+      })
+
       const planoData: PlanoData = {
         name: state.planoName,
         url: state.backgroundUrl,
         width: state.canvasWidth,
         height: state.canvasHeight,
         evento_id: state.eventoId || undefined,
-        spaces: state.stands.map((stand, i) => shapeToApiFormat(stand, i)),
-        zones: state.zones.map((zone, i) => ({
-          ...shapeToApiFormat(zone, i),
-          name: zone.label || `Zona ${i + 1}`,
-        })),
+        spaces: standsWithZones,
+        zones: zonesWithIds,
       }
 
       let result: PlanoData
