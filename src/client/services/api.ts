@@ -6,6 +6,7 @@ export interface PlanoData {
     url: string;
     width: number;
     height: number;
+    evento_id?: string;
     spaces: SpaceData[];
     zones: ZoneData[];
 }
@@ -41,6 +42,14 @@ export interface ReservationData {
     user_id?: string;
 }
 
+export interface EventoData {
+    id: string;
+    nombre: string;
+    fecha_reserva_desde: string;
+    fecha_reserva_hasta: string;
+    planos?: PlanoData[];
+}
+
 export async function fetchPlanos(): Promise<PlanoData[]> {
     const response = await fetch(`${API_BASE}/planos/`);
     if (!response.ok) {
@@ -56,3 +65,12 @@ export async function fetchPlano(id: string): Promise<PlanoData> {
     }
     return response.json();
 }
+
+export async function fetchEventos(): Promise<EventoData[]> {
+    const response = await fetch(`${API_BASE}/eventos/`);
+    if (!response.ok) {
+        throw new Error('Error al obtener eventos');
+    }
+    return response.json();
+}
+

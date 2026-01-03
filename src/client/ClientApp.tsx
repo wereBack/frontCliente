@@ -1,17 +1,25 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { usePlanos } from './hooks/usePlanos'
 import PlanoMap from './components/PlanoMap'
 import Legend from './components/Legend'
+import EventSelector from './components/EventSelector'
 import './client.css'
 
 const ClientApp = () => {
     const { isAuthenticated, user, login, logout } = useAuth()
     const { planos, isLoading, error, refetch } = usePlanos()
+    const [selectedEventoId, setSelectedEventoId] = useState<string | null>(null)
     const [selectedPlanoIndex, setSelectedPlanoIndex] = useState(0)
     const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
 
-    const activePlano = planos[selectedPlanoIndex]
+    // Filter planos by selected event
+    const filteredPlanos = useMemo(() => {
+        if (!selectedEventoId) return planos
+        return planos.filter((p) => p.evento_id === selectedEventoId)
+    }, [planos, selectedEventoId])
+
+    const activePlano = filteredPlanos[selectedPlanoIndex]
     const selectedSpace = activePlano?.spaces.find((s) => s.id === selectedSpaceId)
 
     const availableCount = activePlano
@@ -21,10 +29,21 @@ const ClientApp = () => {
         ? activePlano.spaces.filter((s) => s.reservations && s.reservations.length > 0).length
         : 0
 
+    // Reset plano index when event changes
+    const handleEventChange = (eventoId: string | null) => {
+        setSelectedEventoId(eventoId)
+        setSelectedPlanoIndex(0)
+        setSelectedSpaceId(null)
+    }
+
     return (
         <div className="client-app">
             <header className="client-hero">
                 <div className="hero-row hero-row--top">
+                    <EventSelector
+                        selectedEventoId={selectedEventoId}
+                        onSelectEvento={handleEventChange}
+                    />
                     <div className="session-actions">
                         {isAuthenticated ? (
                             <>
@@ -69,9 +88,9 @@ const ClientApp = () => {
             </header>
 
             {/* Plano selector */}
-            {planos.length > 1 && (
+            {filteredPlanos.length > 1 && (
                 <div className="floor-switcher">
-                    {planos.map((plano, index) => (
+                    {filteredPlanos.map((plano, index) => (
                         <button
                             key={plano.id}
                             className={`floor-switcher__btn ${selectedPlanoIndex === index ? 'floor-switcher__btn--active' : ''}`}

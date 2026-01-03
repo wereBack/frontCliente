@@ -34,6 +34,8 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
   const presets = useStandStore((state) => state.presets)
   const rectPresetId = useStandStore((state) => state.rectPresetId)
   const setRectPreset = useStandStore((state) => state.setRectPreset)
+  const savePlano = useStandStore((state) => state.savePlano)
+  const isSaving = useStandStore((state) => state.isSaving)
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -152,6 +154,13 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
       <div className="toolbar__section">
         <p className="toolbar__title">Acciones</p>
         <div className="toolbar__stack">
+          <button
+            onClick={savePlano}
+            disabled={isSaving}
+            className="toolbar__button toolbar__button--active"
+          >
+            {isSaving ? 'Guardando...' : '💾 Guardar Mapa'}
+          </button>
           <button
             onClick={undoLast}
             disabled={!hasShapes}
