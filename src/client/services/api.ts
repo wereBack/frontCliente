@@ -74,3 +74,47 @@ export async function fetchEventos(): Promise<EventoData[]> {
     return response.json();
 }
 
+export async function createReservation(spaceId: string, userId?: string): Promise<ReservationData> {
+    const response = await fetch(`${API_BASE}/spaces/${spaceId}/reservar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al reservar');
+    }
+    return response.json();
+}
+
+export async function cancelReservation(spaceId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/spaces/${spaceId}/reserva`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al cancelar reserva');
+    }
+}
+
+export async function blockSpace(spaceId: string): Promise<SpaceData> {
+    const response = await fetch(`${API_BASE}/spaces/${spaceId}/bloquear`, {
+        method: 'PATCH',
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al bloquear');
+    }
+    return response.json();
+}
+
+export async function unblockSpace(spaceId: string): Promise<SpaceData> {
+    const response = await fetch(`${API_BASE}/spaces/${spaceId}/desbloquear`, {
+        method: 'PATCH',
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al desbloquear');
+    }
+    return response.json();
+}

@@ -1,10 +1,24 @@
 import { useState, useMemo } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { usePlanos } from './hooks/usePlanos'
+import { createReservation } from './services/api'
 import PlanoMap from './components/PlanoMap'
 import Legend from './components/Legend'
 import EventSelector from './components/EventSelector'
 import './client.css'
+
+// Helper to get stand status
+const getSpaceStatus = (space: { active: boolean; reservations?: { estado: string }[] }): 'disponible' | 'reservado' | 'bloqueado' => {
+    if (!space.active) return 'bloqueado'
+    if (space.reservations && space.reservations.length > 0) return 'reservado'
+    return 'disponible'
+}
+
+const STATUS_LABELS: Record<string, string> = {
+    disponible: 'Disponible',
+    reservado: 'Reservado',
+    bloqueado: 'Bloqueado',
+}
 
 const ClientApp = () => {
     const { isAuthenticated, user, login, logout } = useAuth()
@@ -35,6 +49,24 @@ const ClientApp = () => {
         setSelectedPlanoIndex(0)
         setSelectedSpaceId(null)
     }
+
+    // Handle reservation
+    const [isReserving, setIsReserving] = useState(false)
+    const handleReserve = async () => {
+        if (!selectedSpaceId || !user) return
+        setIsReserving(true)
+        try {
+            await createReservation(selectedSpaceId, user.username)
+            await refetch()
+            alert('¡Reserva realizada con éxito!')
+        } catch (error) {
+            alert(error instanceof Error ? error.message : 'Error al reservar')
+        } finally {
+            setIsReserving(false)
+        }
+    }
+
+    const selectedSpaceStatus = selectedSpace ? getSpaceStatus(selectedSpace) : null
 
     return (
         <div className="client-app">
@@ -149,11 +181,23 @@ const ClientApp = () => {
                                         <div className="stand-details__content">
                                             <p><strong>Nombre:</strong> {selectedSpace.name}</p>
                                             <p><strong>Dimensiones:</strong> {selectedSpace.width}×{selectedSpace.height} px</p>
-                                            <p><strong>Estado:</strong> {selectedSpace.active ? 'Disponible' : 'No disponible'}</p>
-                                            {isAuthenticated && selectedSpace.active && (
-                                                <button className="reserve-btn">Reservar este stand</button>
+                                            <p><strong>Estado:</strong> {STATUS_LABELS[selectedSpaceStatus || 'disponible']}</p>
+                                            {isAuthenticated && selectedSpaceStatus === 'disponible' && (
+                                                <button
+                                                    className="reserve-btn"
+                                                    onClick={handleReserve}
+                                                    disabled={isReserving}
+                                                >
+                                                    {isReserving ? 'Reservando...' : 'Reservar este stand'}
+                                                </button>
                                             )}
-                                            {!isAuthenticated && selectedSpace.active && (
+                                            {isAuthenticated && selectedSpaceStatus === 'reservado' && (
+                                                <p className="hint" style={{ color: '#d97706' }}>Este stand ya está reservado</p>
+                                            )}
+                                            {selectedSpaceStatus === 'bloqueado' && (
+                                                <p className="hint" style={{ color: '#dc2626' }}>Este stand no está disponible</p>
+                                            )}
+                                            {!isAuthenticated && selectedSpaceStatus === 'disponible' && (
                                                 <p className="hint">Iniciá sesión para reservar</p>
                                             )}
                                         </div>

@@ -16,7 +16,6 @@ const ZONE_TOOLS = [
   { id: 'zone-paint', label: 'Pintar zona' },
 ] as const
 
-const COLOR_PRESETS = ['#ffb703', '#fb8500', '#8ecae6', '#219ebc', '#9b5de5']
 
 type ToolbarProps = {
   onBackgroundChange: (file?: string) => void
@@ -25,8 +24,6 @@ type ToolbarProps = {
 const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
   const mode = useStandStore((state) => state.mode)
   const setMode = useStandStore((state) => state.setMode)
-  const color = useStandStore((state) => state.color)
-  const setColor = useStandStore((state) => state.setColor)
   const stands = useStandStore((state) => state.stands)
   const zones = useStandStore((state) => state.zones)
   const undoLast = useStandStore((state) => state.undoLast)
@@ -116,27 +113,6 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
         <small className="toolbar__hint">
           Con un preset activo, sólo elegís la orientación del stand al arrastrar.
         </small>
-      </div>
-
-      <div className="toolbar__section">
-        <p className="toolbar__title">Color activo</p>
-        <input
-          type="color"
-          value={color}
-          onChange={(event) => setColor(event.target.value)}
-          className="toolbar__color-picker"
-        />
-        <div className="toolbar__swatches">
-          {COLOR_PRESETS.map((presetColor) => (
-            <button
-              key={presetColor}
-              className="toolbar__swatch"
-              style={{ backgroundColor: presetColor }}
-              onClick={() => setColor(presetColor)}
-              aria-label={`Usar color ${presetColor}`}
-            />
-          ))}
-        </div>
       </div>
 
       <div className="toolbar__section">

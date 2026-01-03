@@ -125,7 +125,7 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
                                         width={space.width * stageDimensions.scale}
                                         height={space.height * stageDimensions.scale}
                                         cornerRadius={6}
-                                        fill={space.color || meta.bg}
+                                        fill={meta.bg}
                                         stroke={isSelected ? '#0f172a' : meta.color}
                                         strokeWidth={isSelected ? 3 : 2}
                                     />
