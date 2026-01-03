@@ -1,5 +1,6 @@
 import { floors } from '../data/floors'
 import { useClientStore } from '../store/clientStore'
+import { useAuth } from '../auth/AuthContext'
 import FloorSwitcher from './components/FloorSwitcher'
 import StandMap from './components/StandMap'
 import Legend from './components/Legend'
@@ -18,9 +19,9 @@ const ClientApp = () => {
   const reservations = useClientStore((state) => state.reservations)
   const releaseStand = useClientStore((state) => state.releaseStand)
   const reserveSelected = useClientStore((state) => state.reserveSelected)
-  const isLoggedIn = useClientStore((state) => state.isLoggedIn)
-  const login = useClientStore((state) => state.login)
-  const logout = useClientStore((state) => state.logout)
+
+  // Use Keycloak auth instead of mock
+  const { isAuthenticated, user, login, logout } = useAuth()
 
   const activeFloor = floors.find((floor) => floor.id === floorId) ?? floors[0]
   const selectedStand = activeFloor?.stands.find((stand) => stand.id === selectedStandId)
@@ -39,9 +40,9 @@ const ClientApp = () => {
       <header className="client-hero">
         <div className="hero-row hero-row--top">
           <div className="session-actions">
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <>
-                <span className="badge">Sesión iniciada</span>
+                <span className="badge">Hola, {user?.name || 'Usuario'}</span>
                 <button type="button" className="ghost-btn" onClick={logout}>
                   Cerrar sesión
                 </button>
@@ -106,7 +107,7 @@ const ClientApp = () => {
               onRelease={() => releaseStand(selectedStand?.id)}
               onReserve={() => reserveSelected()}
               canReserve={
-                isLoggedIn && !!selectedStand && currentStatus !== 'reservado' && currentStatus !== 'bloqueado'
+                isAuthenticated && !!selectedStand && currentStatus !== 'reservado' && currentStatus !== 'bloqueado'
               }
             />
           </div>
