@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import StandCanvas from './components/StandCanvas'
 import StandInspector from './components/StandInspector'
 import Toolbar from './components/Toolbar'
@@ -9,20 +8,17 @@ import { useStandStore } from './store/standStore'
 import './admin.css'
 
 const AdminApp = () => {
-    const [backgroundSrc, setBackgroundSrc] = useState<string>()
     const { user, logout } = useAuth()
+    const backgroundUrl = useStandStore((state) => state.backgroundUrl)
     const setBackgroundUrl = useStandStore((state) => state.setBackgroundUrl)
 
-    // Sync background with store
-    useEffect(() => {
-        if (backgroundSrc) {
-            setBackgroundUrl(backgroundSrc)
-        }
-    }, [backgroundSrc, setBackgroundUrl])
+    const handleBackgroundChange = (src?: string) => {
+        setBackgroundUrl(src || '')
+    }
 
     return (
         <div className="app-shell">
-            <Toolbar onBackgroundChange={setBackgroundSrc} />
+            <Toolbar onBackgroundChange={handleBackgroundChange} />
 
             <main className="workspace">
                 <header className="workspace__header">
@@ -42,7 +38,7 @@ const AdminApp = () => {
                 </header>
 
                 <section className="workspace__canvas">
-                    <StandCanvas backgroundSrc={backgroundSrc} />
+                    <StandCanvas backgroundSrc={backgroundUrl} />
                 </section>
             </main>
 

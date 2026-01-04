@@ -2,7 +2,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import Konva from 'konva'
 import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import { useElementSize } from '../hooks/useElementSize'
 import type {
   DrawingMode,
   FreeShape,
@@ -29,7 +28,6 @@ const MIN_SHAPE_SIZE = 8
 const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<Konva.Stage | null>(null)
-  const size = useElementSize(containerRef)
 
   const stands = useStandStore((state) => state.stands)
   const zones = useStandStore((state) => state.zones)
@@ -41,6 +39,9 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   const selectStand = useStandStore((state) => state.selectStand)
   const updateStand = useStandStore((state) => state.updateStand)
   const updateZone = useStandStore((state) => state.updateZone)
+  const setCanvasSize = useStandStore((state) => state.setCanvasSize)
+  const canvasWidth = useStandStore((state) => state.canvasWidth)
+  const canvasHeight = useStandStore((state) => state.canvasHeight)
   const rectPreset = useStandStore((state) => {
     if (!state.rectPresetId) return null
     return state.presets.find((preset) => preset.id === state.rectPresetId) ?? null
@@ -72,6 +73,8 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     }
 
     const image = new window.Image()
+    // Necesario para cargar imagenes de S3 (CORS)
+    image.crossOrigin = 'anonymous'
     
     // Handle SVG images - some browsers need special handling
     const isSvg = backgroundSrc.includes('image/svg+xml') || 
@@ -85,11 +88,16 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       image.src = backgroundSrc
     }
     
-    // For SVG, we might need to set dimensions explicitly
     image.onload = () => {
-      // If SVG has no intrinsic dimensions, use canvas size
-      if (image.width === 0 || image.height === 0) {
-        console.warn('SVG has no intrinsic dimensions, using canvas size')
+      // Usar dimensiones originales de la imagen
+      const imgWidth = image.naturalWidth || image.width
+      const imgHeight = image.naturalHeight || image.height
+      
+      if (imgWidth > 0 && imgHeight > 0) {
+        // Sincronizar dimensiones con el store
+        setCanvasSize(imgWidth, imgHeight)
+      } else {
+        console.warn('Imagen sin dimensiones validas')
       }
       setBackgroundImage(image)
     }
@@ -97,7 +105,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       console.error('Error loading background image:', err)
       setBackgroundImage(null)
     }
-  }, [backgroundSrc])
+  }, [backgroundSrc, setCanvasSize])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -495,11 +503,11 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   }, [modeMeta.tool])
 
   return (
-    <div ref={containerRef} className="canvas-shell" style={{ position: 'relative' }}>
+    <div ref={containerRef} className="canvas-shell canvas-shell--scrollable" style={{ position: 'relative' }}>
       <Stage
         ref={stageRef}
-        width={size.width}
-        height={size.height}
+        width={canvasWidth}
+        height={canvasHeight}
         className="canvas-stage"
         scaleX={navScale}
         scaleY={navScale}
@@ -517,16 +525,16 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
           {backgroundImage ? (
             <KonvaImage
               image={backgroundImage}
-              width={size.width}
-              height={size.height}
+              width={canvasWidth}
+              height={canvasHeight}
               listening={false}
             />
           ) : (
             <Rect
               x={0}
               y={0}
-              width={size.width}
-              height={size.height}
+              width={canvasWidth}
+              height={canvasHeight}
               fill="#f1f3f5"
               listening={false}
             />

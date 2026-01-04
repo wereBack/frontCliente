@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createPlano, updatePlano, fetchPlano, type PlanoData } from '../services/api'
+import { createPlano, updatePlano, fetchPlano, uploadPlanoImage, type PlanoData } from '../services/api'
 
 export type DrawingMode =
   | 'select'
@@ -53,6 +53,7 @@ type StandStore = {
   planoName: string
   eventoId: string | null
   backgroundUrl: string
+  backgroundFile: File | null
   canvasWidth: number
   canvasHeight: number
   isSaving: boolean
@@ -72,6 +73,7 @@ type StandStore = {
   setPlanoName: (name: string) => void
   setEventoId: (id: string | null) => void
   setBackgroundUrl: (url: string) => void
+  setBackgroundFile: (file: File | null) => void
   setCanvasSize: (width: number, height: number) => void
   savePlano: () => Promise<void>
   loadPlano: (id: string) => Promise<void>
@@ -177,6 +179,7 @@ export const useStandStore = create<StandStore>((set, get) => ({
   planoName: 'Nuevo Plano',
   eventoId: null,
   backgroundUrl: '',
+  backgroundFile: null,
   canvasWidth: 800,
   canvasHeight: 600,
   isSaving: false,
@@ -196,6 +199,7 @@ export const useStandStore = create<StandStore>((set, get) => ({
   setPlanoName: (name) => set({ planoName: name }),
   setEventoId: (id) => set({ eventoId: id }),
   setBackgroundUrl: (url) => set({ backgroundUrl: url }),
+  setBackgroundFile: (file) => set({ backgroundFile: file }),
   setCanvasSize: (width, height) => set({ canvasWidth: width, canvasHeight: height }),
 
   savePlano: async () => {
@@ -203,6 +207,16 @@ export const useStandStore = create<StandStore>((set, get) => ({
     set({ isSaving: true })
 
     try {
+      let backgroundUrl = state.backgroundUrl
+
+      // Si hay un archivo nuevo, subirlo primero a S3
+      if (state.backgroundFile) {
+        const uploadResult = await uploadPlanoImage(state.backgroundFile)
+        backgroundUrl = uploadResult.url
+        // Limpiar el archivo despues de subir y actualizar la URL
+        set({ backgroundFile: null, backgroundUrl: backgroundUrl })
+      }
+
       // First prepare zones with temporary IDs for reference
       const zonesWithIds = state.zones.map((zone, i) => ({
         ...shapeToApiFormat(zone, i),
@@ -222,7 +236,7 @@ export const useStandStore = create<StandStore>((set, get) => ({
 
       const planoData: PlanoData = {
         name: state.planoName,
-        url: state.backgroundUrl,
+        url: backgroundUrl,
         width: state.canvasWidth,
         height: state.canvasHeight,
         evento_id: state.eventoId || undefined,
@@ -318,6 +332,7 @@ export const useStandStore = create<StandStore>((set, get) => ({
     planoId: null,
     planoName: 'Nuevo Plano',
     backgroundUrl: '',
+    backgroundFile: null,
   }),
   undoLast: () =>
     set((state) => {

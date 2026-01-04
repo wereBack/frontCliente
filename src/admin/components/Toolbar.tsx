@@ -34,13 +34,18 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
   const isSaving = useStandStore((state) => state.isSaving)
   const planoName = useStandStore((state) => state.planoName)
   const setPlanoName = useStandStore((state) => state.setPlanoName)
+  const setBackgroundFile = useStandStore((state) => state.setBackgroundFile)
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
       onBackgroundChange(undefined)
+      setBackgroundFile(null)
       return
     }
+    // Guardar el archivo original para subir a S3 al guardar
+    setBackgroundFile(file)
+    // Convertir a base64 para preview local
     const reader = new FileReader()
     reader.onload = (e) => {
       const result = e.target?.result
@@ -50,6 +55,11 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
       event.target.value = ''
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleRemoveBackground = () => {
+    onBackgroundChange(undefined)
+    setBackgroundFile(null)
   }
 
   const hasShapes = stands.length + zones.length > 0
@@ -137,7 +147,7 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
         </label>
         <button
           className="toolbar__button toolbar__button--ghost"
-          onClick={() => onBackgroundChange(undefined)}
+          onClick={handleRemoveBackground}
         >
           Quitar imagen
         </button>

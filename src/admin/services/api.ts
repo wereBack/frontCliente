@@ -99,6 +99,22 @@ export async function deletePlano(id: string): Promise<void> {
         throw new Error(error.error || 'Error al eliminar plano');
     }
 }
+
+export async function uploadPlanoImage(file: File): Promise<{ url: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch(`${API_BASE}/planos/upload-image`, {
+        method: 'POST',
+        body: formData,
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al subir imagen');
+    }
+    return response.json();
+}
+
 // ... (interfaces existing)
 
 export interface EventoData {
