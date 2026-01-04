@@ -37,7 +37,11 @@ export type FreeShape = BaseShape & {
   points: number[]
 }
 
-export type Stand = RectShape | PolygonShape | FreeShape
+export type ReservationState = 'AVAILABLE' | 'PENDING' | 'RESERVED' | 'BLOCKED'
+
+export type Stand = (RectShape | PolygonShape | FreeShape) & {
+  reservationStatus?: ReservationState
+}
 export type Zone = RectShape | PolygonShape | FreeShape
 
 export type RectPreset = {
@@ -137,6 +141,21 @@ const shapeToApiFormat = (shape: Stand | Zone, index: number) => {
 
 // Helper to convert backend format to frontend shape
 const apiToShapeFormat = (data: PlanoData['spaces'][0]): Stand => {
+  // Determine reservation status
+  let reservationStatus: ReservationState = 'AVAILABLE'
+
+  if (data.active === false) {
+    reservationStatus = 'BLOCKED'
+  } else if (data.reservations && data.reservations.length > 0) {
+    // Check for active reservations
+    const activeReservation = data.reservations.find(
+      r => r.estado === 'RESERVED' || r.estado === 'PENDING'
+    )
+    if (activeReservation) {
+      reservationStatus = activeReservation.estado === 'RESERVED' ? 'RESERVED' : 'PENDING'
+    }
+  }
+
   return {
     id: data.id || crypto.randomUUID(),
     kind: 'rect',
@@ -147,6 +166,7 @@ const apiToShapeFormat = (data: PlanoData['spaces'][0]): Stand => {
     color: data.color,
     label: data.name,
     price: data.price,
+    reservationStatus,
   }
 }
 

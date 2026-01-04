@@ -352,6 +352,21 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
 
   const canDragStand = modeMeta.subject === 'stand' && modeMeta.tool === 'select'
 
+  // Colores según estado de reserva
+  const getStandFillColor = (stand: Stand): string => {
+    switch (stand.reservationStatus) {
+      case 'PENDING':
+        return '#fbbf24' // Amarillo-naranja
+      case 'RESERVED':
+        return '#ef4444' // Rojo
+      case 'BLOCKED':
+        return '#9ca3af' // Gris
+      case 'AVAILABLE':
+      default:
+        return '#22c55e' // Verde
+    }
+  }
+
   const renderShape = (shape: Stand | Zone, subject: Subject) => {
     const isSelected = subject === 'stand' && shape.id === selectedStandId
     const stroke =
@@ -359,7 +374,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     const strokeWidth = isSelected ? 3 : 1.25
     const opacity = subject === 'zone' ? 0.45 : 1
     const isStand = subject === 'stand'
-    const fillColor = isStand ? '#f1f5f9' : shape.color
+    const fillColor = isStand ? getStandFillColor(shape as Stand) : shape.color
 
     const dragProps =
       isStand && canDragStand

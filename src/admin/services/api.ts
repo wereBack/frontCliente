@@ -22,6 +22,12 @@ export interface SpaceData {
     name: string;
     zone_id?: string;
     price?: number;
+    active?: boolean;
+    reservations?: {
+        id: string;
+        estado: 'PENDING' | 'RESERVED' | 'EXPIRED' | 'CANCELLED';
+        asignee: string | null;
+    }[];
 }
 
 export interface ZoneData {
@@ -103,7 +109,7 @@ export async function deletePlano(id: string): Promise<void> {
 export async function uploadPlanoImage(file: File): Promise<{ url: string }> {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await fetch(`${API_BASE}/planos/upload-image`, {
         method: 'POST',
         body: formData,
@@ -260,6 +266,37 @@ export async function updateZone(id: string, data: ZoneUpdateData): Promise<Zone
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Error al actualizar zona');
+    }
+    return response.json();
+}
+
+// ==================== SPACES WITH RESERVATIONS ====================
+
+export interface SpaceWithReservation {
+    id: string;
+    kind: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+    name: string;
+    price?: number;
+    zone_id?: string;
+    active: boolean;
+    reservations: {
+        id: string;
+        estado: ReservationData['estado'];
+        asignee: string | null;
+        user_id: string | null;
+        expires_at: string | null;
+    }[];
+}
+
+export async function fetchSpaces(): Promise<SpaceWithReservation[]> {
+    const response = await fetch(`${API_BASE}/spaces/`);
+    if (!response.ok) {
+        throw new Error('Error al obtener espacios');
     }
     return response.json();
 }
