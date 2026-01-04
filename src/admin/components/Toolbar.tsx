@@ -1,26 +1,28 @@
-import type { ChangeEvent } from 'react'
+import { useState, type ChangeEvent } from 'react'
 import { useStandStore } from '../store/standStore'
 
+type ToolbarMode = 'stands' | 'zones'
+
 const STAND_TOOLS = [
-  { id: 'select', label: 'Seleccionar' },
-  { id: 'stand-rect', label: 'Rectángulo' },
-  { id: 'stand-polygon', label: 'Polígono' },
-  { id: 'stand-free', label: 'Trazo libre' },
+  { id: 'stand-rect', label: 'Rectángulo', desc: 'Dibuja stands rectangulares' },
+  { id: 'stand-polygon', label: 'Polígono', desc: 'Crea formas de múltiples lados' },
+  { id: 'stand-free', label: 'Trazo libre', desc: 'Dibuja a mano alzada' },
 ] as const
 
 const ZONE_TOOLS = [
-  { id: 'zone-rect', label: 'Zona rectángulo' },
-  { id: 'zone-polygon', label: 'Zona polígono' },
-  { id: 'zone-free', label: 'Zona libre' },
-  { id: 'zone-paint', label: 'Pintar zona' },
+  { id: 'zone-rect', label: 'Zona rectangular', desc: 'Área rectangular grande' },
+  { id: 'zone-polygon', label: 'Zona polígono', desc: 'Área con múltiples lados' },
+  { id: 'zone-free', label: 'Zona libre', desc: 'Área a mano alzada' },
+  { id: 'zone-paint', label: 'Pintar zona', desc: 'Cambia el color de zonas' },
 ] as const
-
 
 type ToolbarProps = {
   onBackgroundChange: (file?: string) => void
 }
 
 const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
+  const [toolbarMode, setToolbarMode] = useState<ToolbarMode>('stands')
+
   const mode = useStandStore((state) => state.mode)
   const setMode = useStandStore((state) => state.setMode)
   const stands = useStandStore((state) => state.stands)
@@ -35,6 +37,9 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
   const planoName = useStandStore((state) => state.planoName)
   const setPlanoName = useStandStore((state) => state.setPlanoName)
   const setBackgroundFile = useStandStore((state) => state.setBackgroundFile)
+  const backgroundUrl = useStandStore((state) => state.backgroundUrl)
+  const color = useStandStore((state) => state.color)
+  const setColor = useStandStore((state) => state.setColor)
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -43,9 +48,7 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
       setBackgroundFile(null)
       return
     }
-    // Guardar el archivo original para subir a S3 al guardar
     setBackgroundFile(file)
-    // Convertir a base64 para preview local
     const reader = new FileReader()
     reader.onload = (e) => {
       const result = e.target?.result
@@ -63,125 +66,188 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
   }
 
   const hasShapes = stands.length + zones.length > 0
+  const currentTools = toolbarMode === 'stands' ? STAND_TOOLS : ZONE_TOOLS
+
+  // Switch to select mode when changing toolbar mode
+  const handleModeSwitch = (newMode: ToolbarMode) => {
+    setToolbarMode(newMode)
+    setMode('select')
+  }
 
   return (
-    <aside className="toolbar">
-      <div className="toolbar__section">
-        <p className="toolbar__title">Herramientas de stands</p>
-        <div className="toolbar__grid">
-          {STAND_TOOLS.map((tool) => (
-            <button
-              key={tool.id}
-              className={`toolbar__button ${mode === tool.id ? 'toolbar__button--active' : ''
-                }`}
-              onClick={() => setMode(tool.id)}
-            >
-              {tool.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="toolbar__section">
-        <p className="toolbar__title">Herramientas de zonas</p>
-        <div className="toolbar__grid">
-          {ZONE_TOOLS.map((tool) => (
-            <button
-              key={tool.id}
-              className={`toolbar__button ${mode === tool.id ? 'toolbar__button--active' : ''
-                }`}
-              onClick={() => setMode(tool.id)}
-            >
-              {tool.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="toolbar__section">
-        <p className="toolbar__title">Tamaños de stand</p>
-        <div className="toolbar__chips">
-          <button
-            className={`toolbar__chip ${rectPresetId === null ? 'toolbar__chip--active' : ''
-              }`}
-            onClick={() => setRectPreset(null)}
-          >
-            Libre
-          </button>
-          {presets.map((preset) => (
-            <button
-              key={preset.id}
-              className={`toolbar__chip ${rectPresetId === preset.id ? 'toolbar__chip--active' : ''
-                }`}
-              onClick={() => setRectPreset(preset.id)}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-        <small className="toolbar__hint">
-          Con un preset activo, sólo elegís la orientación del stand al arrastrar.
-        </small>
-      </div>
-
-      <div className="toolbar__section">
-        <p className="toolbar__title">Nombre del plano</p>
-        <input
-          type="text"
-          className="toolbar__input"
-          value={planoName}
-          onChange={(e) => setPlanoName(e.target.value)}
-          placeholder="Nombre del plano"
-        />
-      </div>
-
-      <div className="toolbar__section">
-        <p className="toolbar__title">Plano base</p>
-        <label className="toolbar__upload">
-          <span>Subir imagen</span>
-          <input 
-            type="file" 
-            accept="image/*,.svg,image/svg+xml" 
-            onChange={handleFileUpload} 
-          />
-        </label>
+    <div className="toolbar-panel">
+      {/* Mode Tabs */}
+      <div className="toolbar-tabs">
         <button
-          className="toolbar__button toolbar__button--ghost"
-          onClick={handleRemoveBackground}
+          className={`toolbar-tab ${toolbarMode === 'stands' ? 'toolbar-tab--active' : ''}`}
+          onClick={() => handleModeSwitch('stands')}
         >
-          Quitar imagen
+          <span className="toolbar-tab__count">{stands.length}</span>
+          Stands
+        </button>
+        <button
+          className={`toolbar-tab ${toolbarMode === 'zones' ? 'toolbar-tab--active' : ''}`}
+          onClick={() => handleModeSwitch('zones')}
+        >
+          <span className="toolbar-tab__count">{zones.length}</span>
+          Zonas
         </button>
       </div>
 
-      <div className="toolbar__section">
-        <p className="toolbar__title">Acciones</p>
-        <div className="toolbar__stack">
+      {/* Tools Section */}
+      <div className="toolbar-section">
+        <h4 className="toolbar-section__title">Herramientas</h4>
+
+        <div className="toolbar-tools">
           <button
-            onClick={savePlano}
-            disabled={isSaving}
-            className="toolbar__button toolbar__button--active"
+            className={`toolbar-tool ${mode === 'select' ? 'toolbar-tool--active' : ''}`}
+            onClick={() => setMode('select')}
           >
-            {isSaving ? 'Guardando...' : 'Guardar Plano'}
+            <div className="toolbar-tool__icon">↖</div>
+            <div className="toolbar-tool__info">
+              <span className="toolbar-tool__name">Seleccionar</span>
+              <span className="toolbar-tool__desc">Mover y editar elementos</span>
+            </div>
           </button>
+
+          {currentTools.map((tool) => (
+            <button
+              key={tool.id}
+              className={`toolbar-tool ${mode === tool.id ? 'toolbar-tool--active' : ''}`}
+              onClick={() => setMode(tool.id)}
+            >
+              <div className="toolbar-tool__icon">
+                {tool.id.includes('rect') ? '▬' :
+                  tool.id.includes('polygon') ? '⬡' :
+                    tool.id.includes('paint') ? '◉' : '〰'}
+              </div>
+              <div className="toolbar-tool__info">
+                <span className="toolbar-tool__name">{tool.label}</span>
+                <span className="toolbar-tool__desc">{tool.desc}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Presets - only for stands */}
+      {toolbarMode === 'stands' && (
+        <div className="toolbar-section">
+          <h4 className="toolbar-section__title">Tamaños predefinidos</h4>
+          <div className="toolbar-presets">
+            <button
+              className={`toolbar-preset ${rectPresetId === null ? 'toolbar-preset--active' : ''}`}
+              onClick={() => setRectPreset(null)}
+            >
+              Libre
+            </button>
+            {presets.map((preset) => (
+              <button
+                key={preset.id}
+                className={`toolbar-preset ${rectPresetId === preset.id ? 'toolbar-preset--active' : ''}`}
+                onClick={() => setRectPreset(preset.id)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Color picker for zones */}
+      {toolbarMode === 'zones' && (
+        <div className="toolbar-section">
+          <h4 className="toolbar-section__title">Color de zona</h4>
+          <div className="toolbar-color">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="toolbar-color__picker"
+            />
+            <span className="toolbar-color__label">{color}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Plano Name */}
+      <div className="toolbar-section">
+        <h4 className="toolbar-section__title">Nombre del plano</h4>
+        <input
+          type="text"
+          className="toolbar-input"
+          value={planoName}
+          onChange={(e) => setPlanoName(e.target.value)}
+          placeholder="Ej: Sector A - Piso 1"
+        />
+      </div>
+
+      {/* Background Image */}
+      <div className="toolbar-section">
+        <h4 className="toolbar-section__title">Imagen de fondo</h4>
+        {backgroundUrl ? (
+          <div className="toolbar-image-preview">
+            <img src={backgroundUrl} alt="Fondo" className="toolbar-image-preview__img" />
+            <div className="toolbar-image-preview__actions">
+              <label className="toolbar-image-preview__change">
+                Cambiar
+                <input
+                  type="file"
+                  accept="image/*,.svg"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              <button
+                className="toolbar-image-preview__remove"
+                onClick={handleRemoveBackground}
+              >
+                Quitar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <label className="toolbar-upload">
+            <input
+              type="file"
+              accept="image/*,.svg"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+            <div className="toolbar-upload__icon">+</div>
+            <span>Cargar imagen del plano</span>
+          </label>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="toolbar-actions">
+        <button
+          onClick={savePlano}
+          disabled={isSaving}
+          className="toolbar-btn toolbar-btn--primary"
+        >
+          {isSaving ? 'Guardando...' : 'Guardar plano'}
+        </button>
+        <div className="toolbar-actions__row">
           <button
             onClick={undoLast}
             disabled={!hasShapes}
-            className="toolbar__button toolbar__button--ghost"
+            className="toolbar-btn toolbar-btn--secondary"
           >
-            Deshacer último
+            Deshacer
           </button>
           <button
             onClick={clearAll}
             disabled={!hasShapes}
-            className="toolbar__button toolbar__button--danger"
+            className="toolbar-btn toolbar-btn--danger"
           >
-            Limpiar todo
+            Limpiar
           </button>
         </div>
       </div>
-    </aside>
+    </div>
   )
 }
 
 export default Toolbar
-

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, type RefObject } from 'react'
+import { useState, useCallback, type RefObject } from 'react'
 import type Konva from 'konva'
 
 export interface CanvasNavigationState {
@@ -56,7 +56,7 @@ export function useCanvasNavigation(
     }, [containerWidth, containerHeight, canvasWidth, canvasHeight])
 
     const initialScale = calculateFitScale()
-    
+
     const [scale, setScale] = useState(initialScale)
     const [position, setPosition] = useState({ x: 0, y: 0 })
 
@@ -88,7 +88,7 @@ export function useCanvasNavigation(
 
     const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
         e.evt.preventDefault()
-        
+
         const stage = stageRef.current
         if (!stage) return
 

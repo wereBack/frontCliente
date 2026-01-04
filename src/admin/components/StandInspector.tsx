@@ -16,6 +16,7 @@ const StandInspector = () => {
 
   const [savingStandId, setSavingStandId] = useState<string | null>(null)
   const [savingZoneId, setSavingZoneId] = useState<string | null>(null)
+  const [expandedStandId, setExpandedStandId] = useState<string | null>(null)
 
   const handleLabelChange = (stand: Stand, label: string) => {
     updateStand(stand.id, { label: label.trim() === '' ? undefined : label })
@@ -37,7 +38,7 @@ const StandInspector = () => {
 
   const handleSaveStand = async (stand: Stand, index: number) => {
     if (!planoId) {
-      alert('Primero guarda el plano completo para poder guardar cambios individuales')
+      alert('Primero guarda el plano para poder guardar cambios individuales')
       return
     }
     setSavingStandId(stand.id)
@@ -46,9 +47,8 @@ const StandInspector = () => {
         name: stand.label || `Stand ${index + 1}`,
         price: stand.price ?? null,
       })
-      alert('Stand guardado correctamente')
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error al guardar stand')
+      alert(error instanceof Error ? error.message : 'Error al guardar')
     } finally {
       setSavingStandId(null)
     }
@@ -56,7 +56,7 @@ const StandInspector = () => {
 
   const handleSaveZone = async (zone: Zone, index: number) => {
     if (!planoId) {
-      alert('Primero guarda el plano completo para poder guardar cambios individuales')
+      alert('Primero guarda el plano para poder guardar cambios individuales')
       return
     }
     setSavingZoneId(zone.id)
@@ -66,161 +66,192 @@ const StandInspector = () => {
         price: zone.price ?? null,
         color: zone.color,
       })
-      alert('Zona guardada correctamente')
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Error al guardar zona')
+      alert(error instanceof Error ? error.message : 'Error al guardar')
     } finally {
       setSavingZoneId(null)
     }
   }
 
+  const toggleExpand = (standId: string) => {
+    setExpandedStandId(expandedStandId === standId ? null : standId)
+    selectStand(standId)
+  }
+
   return (
     <>
-      <div className="inspector__header">
-        <div>
-          <p className="inspector__title">Stands</p>
-          <small>{stands.length} creados</small>
+      {/* Stands Section */}
+      <div className="inspector-section">
+        <div className="inspector-section__header">
+          <h3>Stands</h3>
+          <span className="inspector-section__count">{stands.length}</span>
         </div>
-      </div>
 
-      {stands.length === 0 ? (
-        <p className="inspector__empty">
-          Dibujá tus primeros stands ☝️ con las herramientas de la izquierda.
-        </p>
-      ) : (
-        <ul className="inspector__list">
-          {stands.map((stand, index) => (
-            <li
-              key={stand.id}
-              className={`inspector__item ${selectedStandId === stand.id ? 'inspector__item--active' : ''}`}
-            >
-              <button
-                className="inspector__item-main"
-                onClick={() => selectStand(stand.id)}
-              >
-                <span className="inspector__item-name">
-                  {stand.label ?? `Stand ${index + 1}`}
-                </span>
-                <span className="inspector__badge">{stand.kind}</span>
-              </button>
-
-              <div className="inspector__item-body">
-                <label className="inspector__field">
-                  Nombre
-                  <input
-                    className="inspector__input"
-                    placeholder={`Stand ${index + 1}`}
-                    value={stand.label ?? ''}
-                    onChange={(event) => handleLabelChange(stand, event.target.value)}
-                  />
-                </label>
-                <div className="inspector__meta">
-                  <span>{formatStandMeta(stand)}</span>
-                </div>
-                <label className="inspector__field">
-                  Precio (US$)
-                  <input
-                    className="inspector__input"
-                    type="number"
-                    placeholder="0"
-                    value={stand.price ?? ''}
-                    onChange={(event) => handlePriceChange(stand, event.target.value)}
-                  />
-                </label>
-                <div className="inspector__actions">
-                  <button
-                    className="inspector__save"
-                    onClick={() => handleSaveStand(stand, index)}
-                    disabled={savingStandId === stand.id || !planoId}
-                    title={!planoId ? 'Guarda el plano primero' : 'Guardar cambios'}
-                  >
-                    {savingStandId === stand.id ? 'Guardando...' : '💾 Guardar'}
-                  </button>
-                  <button
-                    className="inspector__delete"
-                    onClick={() => removeStand(stand.id)}
-                  >
-                    🗑️ Eliminar
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <section className="inspector__zones">
-        <p className="inspector__title">Zonas ({zones.length})</p>
-        {zones.length === 0 ? (
-          <p className="inspector__empty inspector__empty--compact">
-            Aún no marcaste zonas.
+        {stands.length === 0 ? (
+          <p className="inspector-section__empty">
+            Dibujá stands con las herramientas de la izquierda
           </p>
         ) : (
-          <ul className="inspector__zone-list">
+          <div className="inspector-list">
+            {stands.map((stand, index) => {
+              const isExpanded = expandedStandId === stand.id || selectedStandId === stand.id
+              return (
+                <div
+                  key={stand.id}
+                  className={`inspector-item ${isExpanded ? 'inspector-item--expanded' : ''}`}
+                >
+                  {/* Header - always visible */}
+                  <button
+                    className="inspector-item__header"
+                    onClick={() => toggleExpand(stand.id)}
+                  >
+                    <div className="inspector-item__title">
+                      <span className="inspector-item__icon">◼</span>
+                      <span className="inspector-item__name">
+                        {stand.label || `Stand ${index + 1}`}
+                      </span>
+                    </div>
+                    <div className="inspector-item__meta">
+                      {stand.price != null && (
+                        <span className="inspector-item__price">${stand.price}</span>
+                      )}
+                      <span className="inspector-item__type">{stand.kind}</span>
+                      <span className="inspector-item__chevron">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                  </button>
+
+                  {/* Expanded body */}
+                  {isExpanded && (
+                    <div className="inspector-item__body">
+                      <div className="inspector-field">
+                        <label>Nombre</label>
+                        <input
+                          type="text"
+                          placeholder={`Stand ${index + 1}`}
+                          value={stand.label ?? ''}
+                          onChange={(e) => handleLabelChange(stand, e.target.value)}
+                        />
+                      </div>
+
+                      <div className="inspector-field">
+                        <label>Precio (US$)</label>
+                        <input
+                          type="number"
+                          placeholder="0.00"
+                          value={stand.price ?? ''}
+                          onChange={(e) => handlePriceChange(stand, e.target.value)}
+                        />
+                      </div>
+
+                      <div className="inspector-item__info">
+                        {formatStandMeta(stand)}
+                      </div>
+
+                      <div className="inspector-item__actions">
+                        <button
+                          className="inspector-btn inspector-btn--save"
+                          onClick={() => handleSaveStand(stand, index)}
+                          disabled={savingStandId === stand.id || !planoId}
+                        >
+                          {savingStandId === stand.id ? 'Guardando...' : 'Guardar'}
+                        </button>
+                        <button
+                          className="inspector-btn inspector-btn--delete"
+                          onClick={() => removeStand(stand.id)}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Zones Section */}
+      <div className="inspector-section">
+        <div className="inspector-section__header">
+          <h3>Zonas</h3>
+          <span className="inspector-section__count">{zones.length}</span>
+        </div>
+
+        {zones.length === 0 ? (
+          <p className="inspector-section__empty">
+            Usá las herramientas de zona para crear áreas
+          </p>
+        ) : (
+          <div className="inspector-list">
             {zones.map((zone, index) => (
-              <li key={zone.id} className="inspector__zone-item">
-                <div className="inspector__zone-header">
-                  <span
-                    className="inspector__zone-dot"
-                    style={{ backgroundColor: zone.color }}
-                  />
+              <div key={zone.id} className="zone-card">
+                <div
+                  className="zone-card__color"
+                  style={{ backgroundColor: zone.color }}
+                />
+                <div className="zone-card__content">
                   <input
-                    className="inspector__input inspector__input--small"
+                    className="zone-card__name"
+                    type="text"
                     placeholder={`Zona ${index + 1}`}
                     value={zone.label ?? ''}
                     onChange={(e) => handleZoneLabelChange(zone, e.target.value)}
                   />
+                  <div className="zone-card__row">
+                    <div className="zone-card__field">
+                      <label>Precio</label>
+                      <input
+                        type="number"
+                        placeholder="US$"
+                        value={zone.price ?? ''}
+                        onChange={(e) => handleZonePriceChange(zone, e.target.value)}
+                      />
+                    </div>
+                    <div className="zone-card__field">
+                      <label>Color</label>
+                      <input
+                        type="color"
+                        value={zone.color}
+                        onChange={(e) => updateZone(zone.id, { color: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="inspector__zone-fields">
-                  <input
-                    className="inspector__input inspector__input--small"
-                    type="number"
-                    placeholder="Precio (US$)"
-                    value={zone.price ?? ''}
-                    onChange={(e) => handleZonePriceChange(zone, e.target.value)}
-                  />
-                  <input
-                    className="inspector__input inspector__input--color"
-                    type="color"
-                    value={zone.color}
-                    onChange={(e) => updateZone(zone.id, { color: e.target.value })}
-                    title="Color de la zona"
-                  />
-                </div>
-                <div className="inspector__zone-actions">
+                <div className="zone-card__actions">
                   <button
-                    className="inspector__save inspector__save--small"
+                    className="zone-card__btn zone-card__btn--save"
                     onClick={() => handleSaveZone(zone, index)}
                     disabled={savingZoneId === zone.id || !planoId}
-                    title={!planoId ? 'Guarda el plano primero' : 'Guardar cambios'}
+                    title="Guardar"
                   >
                     {savingZoneId === zone.id ? '...' : '💾'}
                   </button>
                   <button
-                    className="inspector__zone-delete"
+                    className="zone-card__btn zone-card__btn--delete"
                     onClick={() => removeZone(zone.id)}
-                    aria-label="Eliminar zona"
+                    title="Eliminar"
                   >
                     ×
                   </button>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
-      </section>
+      </div>
     </>
   )
 }
 
 const formatStandMeta = (stand: Stand) => {
   if (stand.kind === 'rect') {
-    return `${Math.round(stand.width)}×${Math.round(stand.height)} px`
+    return `Tamaño: ${Math.round(stand.width)}×${Math.round(stand.height)} px`
   }
   if (stand.kind === 'free') {
-    return `${Math.round(stand.points.length / 2)} pts`
+    return `Puntos: ${Math.round(stand.points.length / 2)}`
   }
-  return `${Math.round(stand.points.length / 2)} vértices`
+  return `Vértices: ${Math.round(stand.points.length / 2)}`
 }
 
 export default StandInspector

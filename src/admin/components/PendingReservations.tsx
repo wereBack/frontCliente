@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { io, Socket } from 'socket.io-client'
+import { io } from 'socket.io-client'
 import {
     fetchPendingReservations,
     confirmReservation,
@@ -13,7 +13,6 @@ const PendingReservations = () => {
     const [reservations, setReservations] = useState<ReservationData[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [socket, setSocket] = useState<Socket | null>(null)
 
     // Cargar reservas pendientes
     const loadReservations = useCallback(async () => {
@@ -52,7 +51,6 @@ const PendingReservations = () => {
 
         newSocket.on('reservation_updated', (data) => {
             console.log('Reserva actualizada:', data)
-            // Si cambió a RESERVED, remover de la lista de pendientes
             if (data.reservation?.estado === 'RESERVED') {
                 setReservations((prev) =>
                     prev.filter((r) => r.id !== data.reservation.id)
@@ -73,8 +71,6 @@ const PendingReservations = () => {
                 prev.filter((r) => r.id !== data.reservation?.id)
             )
         })
-
-        setSocket(newSocket)
 
         return () => {
             newSocket.disconnect()
@@ -127,7 +123,7 @@ const PendingReservations = () => {
                     <span className="pending-reservations__badge">{reservations.length}</span>
                 )}
             </h3>
-            
+
             {reservations.length === 0 ? (
                 <p className="pending-reservations__empty">No hay reservas pendientes</p>
             ) : (
