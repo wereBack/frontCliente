@@ -18,7 +18,6 @@ const EventSelector = () => {
         loadEventos();
     }, []);
 
-    // Load planos when event changes
     useEffect(() => {
         if (eventoId) {
             loadPlanosForEvent(eventoId);
@@ -51,7 +50,6 @@ const EventSelector = () => {
 
     const handleEventChange = (newEventoId: string | null) => {
         setEventoId(newEventoId);
-        // Clear current plano when changing event
         clearAll();
     };
 
@@ -61,37 +59,34 @@ const EventSelector = () => {
 
     const handleNewPlano = () => {
         clearAll();
-        // Keep the event selected
         if (eventoId) {
             setEventoId(eventoId);
         }
     };
 
     const handleDeletePlano = async (planoIdToDelete: string) => {
-        if (!confirm('¿Estás seguro de eliminar este plano?')) return;
+        if (!confirm('¿Eliminar este plano?')) return;
         try {
             await deletePlano(planoIdToDelete);
             setPlanos(planos.filter(p => p.id !== planoIdToDelete));
             if (planoId === planoIdToDelete) {
                 clearAll();
             }
-            alert('Plano eliminado');
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Error al eliminar plano');
+            alert(error instanceof Error ? error.message : 'Error');
         }
     };
 
     const handleDeleteEvento = async () => {
         if (!eventoId) return;
-        if (!confirm('¿Estás seguro de eliminar este evento y todos sus planos?')) return;
+        if (!confirm('¿Eliminar este evento y todos sus planos?')) return;
         try {
             await deleteEvento(eventoId);
             setEventos(eventos.filter(e => e.id !== eventoId));
             setEventoId(null);
             clearAll();
-            alert('Evento eliminado');
         } catch (error) {
-            alert(error instanceof Error ? error.message : 'Error al eliminar evento');
+            alert(error instanceof Error ? error.message : 'Error');
         }
     };
 
@@ -115,108 +110,142 @@ const EventSelector = () => {
         }
     };
 
+    const selectedEvento = eventos.find(e => e.id === eventoId);
+
     return (
-        <div className="toolbar__section event-selector">
-            <h3 className="toolbar__section-title">Evento</h3>
+        <div className="event-selector">
+            {/* Event Selection */}
+            <div className="event-selector__section">
+                <div className="event-selector__header">
+                    <span className="event-selector__icon">📅</span>
+                    <h3>Evento</h3>
+                </div>
 
-            {!isCreating ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <select
-                        className="toolbar__input"
-                        value={eventoId || ''}
-                        onChange={(e) => handleEventChange(e.target.value || null)}
-                    >
-                        <option value="">-- Sin evento --</option>
-                        {eventos.map(e => (
-                            <option key={e.id} value={e.id}>{e.nombre}</option>
-                        ))}
-                    </select>
-                    <button
-                        className="toolbar__button"
-                        onClick={() => setIsCreating(true)}
-                    >
-                        + Nuevo Evento
-                    </button>
-                    {eventoId && (
-                        <button
-                            className="toolbar__button toolbar__button--danger"
-                            onClick={handleDeleteEvento}
-                            style={{ marginTop: '4px' }}
+                {!isCreating ? (
+                    <div className="event-selector__content">
+                        <select
+                            className="event-selector__select"
+                            value={eventoId || ''}
+                            onChange={(e) => handleEventChange(e.target.value || null)}
                         >
-                            Eliminar Evento
-                        </button>
-                    )}
-                </div>
-            ) : (
-                <div className="event-creator" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <input
-                        type="text"
-                        placeholder="Nombre evento"
-                        className="toolbar__input"
-                        value={newEventData.nombre}
-                        onChange={e => setNewEventData({ ...newEventData, nombre: e.target.value })}
-                    />
-                    <label style={{ fontSize: '0.8rem', color: '#666' }}>Reserva Desde</label>
-                    <input
-                        type="datetime-local"
-                        className="toolbar__input"
-                        value={newEventData.fecha_reserva_desde}
-                        onChange={e => setNewEventData({ ...newEventData, fecha_reserva_desde: e.target.value })}
-                    />
-                    <label style={{ fontSize: '0.8rem', color: '#666' }}>Reserva Hasta</label>
-                    <input
-                        type="datetime-local"
-                        className="toolbar__input"
-                        value={newEventData.fecha_reserva_hasta}
-                        onChange={e => setNewEventData({ ...newEventData, fecha_reserva_hasta: e.target.value })}
-                    />
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                        <button className="toolbar__button toolbar__button--active" onClick={handleCreateEvento}>Crear</button>
-                        <button className="toolbar__button" onClick={() => setIsCreating(false)}>Cancelar</button>
-                    </div>
-                </div>
-            )}
-
-            {/* Planos section - only show when event is selected */}
-            {eventoId && !isCreating && (
-                <div style={{ marginTop: '16px' }}>
-                    <h4 className="toolbar__section-title">Planos del evento</h4>
-
-                    {isLoadingPlanos ? (
-                        <p style={{ fontSize: '0.85rem', color: '#888' }}>Cargando planos...</p>
-                    ) : planos.length === 0 ? (
-                        <p style={{ fontSize: '0.85rem', color: '#888' }}>No hay planos guardados</p>
-                    ) : (
-                        <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {planos.map(p => (
-                                <li key={p.id} style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                    <button
-                                        className={`toolbar__button ${planoId === p.id ? 'toolbar__button--active' : ''}`}
-                                        onClick={() => handleLoadPlano(p.id!)}
-                                        style={{ flex: 1, textAlign: 'left' }}
-                                    >
-                                        📄 {p.name}
-                                    </button>
-                                    <button
-                                        className="toolbar__button toolbar__button--danger"
-                                        onClick={() => handleDeletePlano(p.id!)}
-                                        style={{ padding: '4px 8px', fontSize: '0.8rem' }}
-                                        title="Eliminar plano"
-                                    >
-                                        Eliminar Plano
-                                    </button>
-                                </li>
+                            <option value="">Seleccionar evento...</option>
+                            {eventos.map(e => (
+                                <option key={e.id} value={e.id}>{e.nombre}</option>
                             ))}
-                        </ul>
-                    )}
+                        </select>
+                        
+                        <div className="event-selector__buttons">
+                            <button
+                                className="event-selector__btn event-selector__btn--primary"
+                                onClick={() => setIsCreating(true)}
+                            >
+                                + Nuevo
+                            </button>
+                            {eventoId && (
+                                <button
+                                    className="event-selector__btn event-selector__btn--danger"
+                                    onClick={handleDeleteEvento}
+                                >
+                                    🗑️
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="event-selector__form">
+                        <input
+                            type="text"
+                            placeholder="Nombre del evento"
+                            className="event-selector__input"
+                            value={newEventData.nombre}
+                            onChange={e => setNewEventData({ ...newEventData, nombre: e.target.value })}
+                        />
+                        <div className="event-selector__dates">
+                            <div className="event-selector__date-field">
+                                <label>Desde</label>
+                                <input
+                                    type="datetime-local"
+                                    className="event-selector__input"
+                                    value={newEventData.fecha_reserva_desde}
+                                    onChange={e => setNewEventData({ ...newEventData, fecha_reserva_desde: e.target.value })}
+                                />
+                            </div>
+                            <div className="event-selector__date-field">
+                                <label>Hasta</label>
+                                <input
+                                    type="datetime-local"
+                                    className="event-selector__input"
+                                    value={newEventData.fecha_reserva_hasta}
+                                    onChange={e => setNewEventData({ ...newEventData, fecha_reserva_hasta: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                        <div className="event-selector__form-actions">
+                            <button 
+                                className="event-selector__btn event-selector__btn--primary"
+                                onClick={handleCreateEvento}
+                            >
+                                Crear
+                            </button>
+                            <button 
+                                className="event-selector__btn"
+                                onClick={() => setIsCreating(false)}
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
 
-                    <button
-                        className="toolbar__button toolbar__button--ghost"
-                        onClick={handleNewPlano}
-                        style={{ marginTop: '8px' }}
-                    >
-                        + Nuevo Plano
-                    </button>
+            {/* Planos Section */}
+            {eventoId && !isCreating && (
+                <div className="event-selector__section">
+                    <div className="event-selector__header">
+                        <span className="event-selector__icon">🗺️</span>
+                        <h3>Planos</h3>
+                    </div>
+
+                    <div className="event-selector__planos">
+                        {isLoadingPlanos ? (
+                            <p className="event-selector__loading">Cargando...</p>
+                        ) : planos.length === 0 ? (
+                            <p className="event-selector__empty">Sin planos guardados</p>
+                        ) : (
+                            <ul className="event-selector__plano-list">
+                                {planos.map(p => (
+                                    <li 
+                                        key={p.id} 
+                                        className={`event-selector__plano-item ${planoId === p.id ? 'event-selector__plano-item--active' : ''}`}
+                                    >
+                                        <button
+                                            className="event-selector__plano-btn"
+                                            onClick={() => handleLoadPlano(p.id!)}
+                                        >
+                                            <span className="event-selector__plano-name">{p.name}</span>
+                                            <span className="event-selector__plano-meta">
+                                                {p.spaces?.length || 0} stands
+                                            </span>
+                                        </button>
+                                        <button
+                                            className="event-selector__plano-delete"
+                                            onClick={() => handleDeletePlano(p.id!)}
+                                            title="Eliminar plano"
+                                        >
+                                            ×
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+
+                        <button
+                            className="event-selector__btn event-selector__btn--ghost"
+                            onClick={handleNewPlano}
+                        >
+                            + Nuevo plano
+                        </button>
+                    </div>
                 </div>
             )}
         </div>
@@ -224,4 +253,3 @@ const EventSelector = () => {
 };
 
 export default EventSelector;
-

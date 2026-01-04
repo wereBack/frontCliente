@@ -1,0 +1,124 @@
+.canvas-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.canvas-controls__group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.canvas-controls__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: #475569;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.canvas-controls__btn:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.canvas-controls__btn:active:not(:disabled) {
+    background: #e2e8f0;
+    transform: scale(0.95);
+}
+
+.canvas-controls__btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.canvas-controls__zoom-level {
+    min-width: 48px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+    font-variant-numeric: tabular-nums;
+}
+
+.canvas-controls__divider {
+    width: 1px;
+    height: 20px;
+    background: #e2e8f0;
+    margin: 0 4px;
+}
+
+.canvas-controls__hint {
+    display: flex;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 1px solid #e2e8f0;
+}
+
+.canvas-controls__hint span {
+    white-space: nowrap;
+}
+
+/* Responsive: hide hints on small screens */
+@media (max-width: 640px) {
+    .canvas-controls__hint {
+        display: none;
+    }
+    
+    .canvas-controls {
+        padding: 6px 10px;
+    }
+}
+
+/* Dark mode variant (optional) */
+.canvas-controls--dark {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.canvas-controls--dark .canvas-controls__btn {
+    color: #94a3b8;
+}
+
+.canvas-controls--dark .canvas-controls__btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+}
+
+.canvas-controls--dark .canvas-controls__zoom-level {
+    color: #e2e8f0;
+}
+
+.canvas-controls--dark .canvas-controls__divider {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.canvas-controls--dark .canvas-controls__hint {
+    color: #64748b;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+

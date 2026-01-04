@@ -6,7 +6,6 @@ const STAND_TOOLS = [
   { id: 'stand-rect', label: 'Rectángulo' },
   { id: 'stand-polygon', label: 'Polígono' },
   { id: 'stand-free', label: 'Trazo libre' },
-  { id: 'stand-paint', label: 'Pintar stand' },
 ] as const
 
 const ZONE_TOOLS = [
@@ -130,7 +129,11 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
         <p className="toolbar__title">Plano base</p>
         <label className="toolbar__upload">
           <span>Subir imagen</span>
-          <input type="file" accept="image/*" onChange={handleFileUpload} />
+          <input 
+            type="file" 
+            accept="image/*,.svg,image/svg+xml" 
+            onChange={handleFileUpload} 
+          />
         </label>
         <button
           className="toolbar__button toolbar__button--ghost"

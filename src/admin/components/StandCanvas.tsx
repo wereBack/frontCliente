@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Konva from 'konva'
 import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -13,6 +13,7 @@ import type {
   Zone,
 } from '../store/standStore'
 import { useStandStore } from '../store/standStore'
+import CanvasControls from '../../components/CanvasControls'
 
 type Subject = 'stand' | 'zone'
 type ToolAction = 'select' | 'paint' | 'rect' | 'polygon' | 'free'
@@ -54,6 +55,14 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   const [isFreeDrawing, setIsFreeDrawing] = useState(false)
   const [draftContext, setDraftContext] = useState<DraftContext>(null)
 
+  // Navigation state (zoom/pan)
+  const [navScale, setNavScale] = useState(1)
+  const [navPosition, setNavPosition] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const MIN_SCALE = 0.25
+  const MAX_SCALE = 4
+  const SCALE_STEP = 0.15
+
   const modeMeta = useMemo(() => parseMode(mode), [mode])
 
   useEffect(() => {
@@ -63,9 +72,31 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     }
 
     const image = new window.Image()
-    image.src = backgroundSrc
-    image.onload = () => setBackgroundImage(image)
-    image.onerror = () => setBackgroundImage(null)
+    
+    // Handle SVG images - some browsers need special handling
+    const isSvg = backgroundSrc.includes('image/svg+xml') || 
+                  backgroundSrc.includes('.svg') ||
+                  backgroundSrc.startsWith('<svg')
+    
+    if (isSvg && backgroundSrc.startsWith('data:')) {
+      // SVG as data URL - should work directly
+      image.src = backgroundSrc
+    } else {
+      image.src = backgroundSrc
+    }
+    
+    // For SVG, we might need to set dimensions explicitly
+    image.onload = () => {
+      // If SVG has no intrinsic dimensions, use canvas size
+      if (image.width === 0 || image.height === 0) {
+        console.warn('SVG has no intrinsic dimensions, using canvas size')
+      }
+      setBackgroundImage(image)
+    }
+    image.onerror = (err) => {
+      console.error('Error loading background image:', err)
+      setBackgroundImage(null)
+    }
   }, [backgroundSrc])
 
   useEffect(() => {
@@ -84,18 +115,118 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     resetDrafts()
   }, [mode])
 
+  // Navigation functions
+  const zoomIn = useCallback(() => {
+    setNavScale(prev => Math.min(MAX_SCALE, prev * (1 + SCALE_STEP)))
+  }, [])
+
+  const zoomOut = useCallback(() => {
+    setNavScale(prev => Math.max(MIN_SCALE, prev * (1 - SCALE_STEP)))
+  }, [])
+
+  const resetView = useCallback(() => {
+    setNavScale(1)
+    setNavPosition({ x: 0, y: 0 })
+  }, [])
+
+  const fitToScreen = useCallback(() => {
+    setNavScale(1)
+    setNavPosition({ x: 0, y: 0 })
+  }, [])
+
+  const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
+    e.evt.preventDefault()
+    
+    const stage = stageRef.current
+    if (!stage) return
+
+    const oldScale = navScale
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    const mousePointTo = {
+      x: (pointer.x - navPosition.x) / oldScale,
+      y: (pointer.y - navPosition.y) / oldScale,
+    }
+
+    const direction = e.evt.deltaY > 0 ? -1 : 1
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale * (1 + direction * SCALE_STEP)))
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    }
+
+    setNavScale(newScale)
+    setNavPosition(newPos)
+  }, [navScale, navPosition])
+
+  // Space key for panning mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !isPanning) {
+        setIsPanning(true)
+      }
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsPanning(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [isPanning])
+
+  const handleStageDragEnd = useCallback((e: KonvaEventObject<DragEvent>) => {
+    if (isPanning) {
+      setNavPosition({ x: e.target.x(), y: e.target.y() })
+    }
+  }, [isPanning])
+
   const getPointerPosition = () => {
     const stage = stageRef.current
     const pointer = stage?.getPointerPosition()
     if (!pointer) {
       return null
     }
-    return pointer
+    // Adjust for scale and position
+    return {
+      x: (pointer.x - navPosition.x) / navScale,
+      y: (pointer.y - navPosition.y) / navScale,
+    }
   }
 
   const commitShape = (shape: Stand | Zone, subject: Subject) => {
     if (subject === 'stand') {
-      addStand(shape as Stand)
+      // Buscar si el stand está dentro de una zona para heredar su precio
+      const stand = shape as Stand
+      let standWithPrice = stand
+      
+      if (stand.kind === 'rect') {
+        const standCenterX = stand.x + stand.width / 2
+        const standCenterY = stand.y + stand.height / 2
+        
+        for (const zone of zones) {
+          if (zone.kind === 'rect') {
+            const isInside = 
+              standCenterX >= zone.x &&
+              standCenterX <= zone.x + zone.width &&
+              standCenterY >= zone.y &&
+              standCenterY <= zone.y + zone.height
+            
+            if (isInside && zone.price != null) {
+              standWithPrice = { ...stand, price: zone.price }
+              break
+            }
+          }
+        }
+      }
+      
+      addStand(standWithPrice)
     } else {
       addZone(shape as Zone)
     }
@@ -267,10 +398,12 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   const renderShape = (shape: Stand | Zone, subject: Subject) => {
     const isSelected = subject === 'stand' && shape.id === selectedStandId
     const stroke =
-      subject === 'stand' ? (isSelected ? '#1d3557' : '#2b2d42') : '#475569'
+      subject === 'stand' ? (isSelected ? '#1d3557' : '#64748b') : '#475569'
     const strokeWidth = isSelected ? 3 : 1.25
     const opacity = subject === 'zone' ? 0.45 : 1
     const isStand = subject === 'stand'
+    // Stands usan color neutro, zonas usan su color
+    const fillColor = isStand ? '#f1f5f9' : shape.color
 
     const dragProps =
       isStand && canDragStand
@@ -291,7 +424,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
           y={shape.y}
           width={shape.width}
           height={shape.height}
-          fill={shape.color}
+          fill={fillColor}
           opacity={opacity}
           stroke={stroke}
           strokeWidth={strokeWidth}
@@ -303,7 +436,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
         <Line
           points={shape.points}
           closed
-          fill={shape.color}
+          fill={fillColor}
           opacity={opacity}
           stroke={stroke}
           strokeWidth={strokeWidth}
@@ -316,7 +449,8 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       shapeNode = (
         <Line
           points={shape.points}
-          stroke={subject === 'zone' ? '#475569' : shape.color}
+          stroke={stroke}
+          fill={fillColor}
           opacity={opacity}
           strokeWidth={strokeWidth}
           lineCap="round"
@@ -361,16 +495,23 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   }, [modeMeta.tool])
 
   return (
-    <div ref={containerRef} className="canvas-shell">
+    <div ref={containerRef} className="canvas-shell" style={{ position: 'relative' }}>
       <Stage
         ref={stageRef}
         width={size.width}
         height={size.height}
         className="canvas-stage"
-        onMouseDown={handleStageMouseDown}
-        onMouseMove={handleStageMouseMove}
-        onMouseUp={handleStageMouseUp}
-        style={{ cursor: stageCursor }}
+        scaleX={navScale}
+        scaleY={navScale}
+        x={navPosition.x}
+        y={navPosition.y}
+        draggable={isPanning}
+        onWheel={handleWheel}
+        onDragEnd={handleStageDragEnd}
+        onMouseDown={isPanning ? undefined : handleStageMouseDown}
+        onMouseMove={isPanning ? undefined : handleStageMouseMove}
+        onMouseUp={isPanning ? undefined : handleStageMouseUp}
+        style={{ cursor: isPanning ? 'grab' : stageCursor }}
       >
         <Layer listening={false}>
           {backgroundImage ? (
@@ -435,6 +576,17 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
           )}
         </Layer>
       </Stage>
+
+      <CanvasControls
+        scale={navScale}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onReset={resetView}
+        onFitToScreen={fitToScreen}
+        minScale={MIN_SCALE}
+        maxScale={MAX_SCALE}
+        showPanHint
+      />
     </div>
   )
 }

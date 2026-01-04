@@ -1,6 +1,16 @@
-import { CATEGORY_META, STATUS_META } from '../constants'
+import { STATUS_META } from '../constants'
 
-const Legend = () => {
+interface ZoneData {
+  id: string
+  name: string
+  color: string
+}
+
+interface LegendProps {
+  zones?: ZoneData[]
+}
+
+const Legend = ({ zones = [] }: LegendProps) => {
   return (
     <div className="legend-card">
       <div>
@@ -15,24 +25,25 @@ const Legend = () => {
         </div>
       </div>
 
-      <div>
-        <p className="legend-card__title">Categorías</p>
-        <div className="legend-card__chips">
-          {Object.entries(CATEGORY_META).map(([id, meta]) => (
-            <span key={id} className="chip chip--soft" style={{ backgroundColor: `${meta.color}22` }}>
-              <span className="chip__dot" style={{ backgroundColor: meta.color }} />
-              {meta.label}
-            </span>
-          ))}
+      {zones.length > 0 && (
+        <div>
+          <p className="legend-card__title">Zonas</p>
+          <div className="legend-card__chips">
+            {zones.map((zone) => (
+              <span 
+                key={zone.id} 
+                className="chip chip--soft" 
+                style={{ backgroundColor: `${zone.color}22`, borderColor: zone.color }}
+              >
+                <span className="chip__dot" style={{ backgroundColor: zone.color }} />
+                {zone.name}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 export default Legend
-
-
-
-
-

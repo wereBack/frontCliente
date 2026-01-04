@@ -21,6 +21,8 @@ export interface SpaceData {
     color: string;
     name: string;
     active: boolean;
+    price?: number;
+    zone_id?: string;
     reservations?: ReservationData[];
 }
 
@@ -33,6 +35,7 @@ export interface ZoneData {
     height: number;
     color: string;
     name: string;
+    price?: number;
 }
 
 export interface ReservationData {
@@ -40,6 +43,7 @@ export interface ReservationData {
     estado: string;
     asignee?: string;
     user_id?: string;
+    expires_at?: string;
 }
 
 export interface EventoData {

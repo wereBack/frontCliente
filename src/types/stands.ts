@@ -1,4 +1,4 @@
-export type StandStatus = 'disponible' | 'reservado' | 'bloqueado'
+export type StandStatus = 'disponible' | 'pendiente' | 'reservado' | 'bloqueado'
 
 export type StandAmenity =
   | 'electricidad'

@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Group, Layer, Rect, Stage, Text, Image as KonvaImage } from 'react-konva'
+import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { PlanoData, SpaceData, ZoneData } from '../services/api'
 import { useElementSize } from '../../hooks/useElementSize'
+import { useCanvasNavigation } from '../../hooks/useCanvasNavigation'
+import CanvasControls from '../../components/CanvasControls'
 
 type PlanoMapProps = {
     plano: PlanoData
@@ -12,12 +15,14 @@ type PlanoMapProps = {
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
     disponible: { bg: '#dcfce7', color: '#16a34a' },
-    reservado: { bg: '#fef3c7', color: '#d97706' },
-    bloqueado: { bg: '#fee2e2', color: '#dc2626' },
+    pendiente: { bg: '#fef3c7', color: '#f59e0b' },
+    reservado: { bg: '#fee2e2', color: '#dc2626' },
+    bloqueado: { bg: '#e2e8f0', color: '#64748b' },
 }
 
 const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
     const containerRef = useRef<HTMLDivElement | null>(null)
+    const stageRef = useRef<Konva.Stage | null>(null)
     const size = useElementSize(containerRef)
     const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null)
 
@@ -33,15 +38,41 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
         return { width, height, scale }
     }, [size.width, aspectRatio, plano.height, plano.width])
 
+    // Canvas navigation (zoom/pan)
+    const [navState, navActions] = useCanvasNavigation(stageRef, {
+        canvasWidth: plano.width * stageDimensions.scale,
+        canvasHeight: plano.height * stageDimensions.scale,
+        containerWidth: stageDimensions.width,
+        containerHeight: stageDimensions.height,
+        minScale: 0.5,
+        maxScale: 4,
+    })
+
     useEffect(() => {
         if (!plano.url) {
             setBackgroundImage(null)
             return
         }
         const img = new window.Image()
+        
+        // Handle SVG images
+        const isSvg = plano.url.includes('image/svg+xml') || 
+                      plano.url.includes('.svg') ||
+                      plano.url.startsWith('<svg')
+        
         img.src = plano.url
-        img.onload = () => setBackgroundImage(img)
-        img.onerror = () => setBackgroundImage(null)
+        
+        img.onload = () => {
+            if (isSvg && (img.width === 0 || img.height === 0)) {
+                console.warn('SVG has no intrinsic dimensions')
+            }
+            setBackgroundImage(img)
+        }
+        img.onerror = (err) => {
+            console.error('Error loading background image:', err)
+            setBackgroundImage(null)
+        }
+        
         return () => {
             setBackgroundImage(null)
         }
@@ -55,18 +86,38 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
     const getSpaceStatus = (space: SpaceData): string => {
         if (!space.active) return 'bloqueado'
         if (space.reservations && space.reservations.length > 0) {
-            return space.reservations[0].estado === 'confirmada' ? 'reservado' : 'disponible'
+            const activeReservation = space.reservations.find(r => r.estado === 'RESERVED' || r.estado === 'PENDING')
+            if (activeReservation?.estado === 'PENDING') return 'pendiente'
+            if (activeReservation?.estado === 'RESERVED') return 'reservado'
         }
         return 'disponible'
+    }
+
+    const handleDragEnd = (e: KonvaEventObject<DragEvent>) => {
+        navActions.setPosition({
+            x: e.target.x(),
+            y: e.target.y(),
+        })
     }
 
     return (
         <div ref={containerRef} className="stand-map__shell">
             <div
                 className="stand-map__stage-wrapper"
-                style={{ width: '100%', height: stageDimensions.height }}
+                style={{ width: '100%', height: stageDimensions.height, position: 'relative', overflow: 'hidden' }}
             >
-                <Stage width={stageDimensions.width} height={stageDimensions.height}>
+                <Stage
+                    ref={stageRef}
+                    width={stageDimensions.width}
+                    height={stageDimensions.height}
+                    scaleX={navState.scale}
+                    scaleY={navState.scale}
+                    x={navState.position.x}
+                    y={navState.position.y}
+                    draggable
+                    onWheel={navActions.handleWheel}
+                    onDragEnd={handleDragEnd}
+                >
                     {/* Background layer */}
                     <Layer listening={false}>
                         {backgroundImage ? (
@@ -148,6 +199,16 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
                         })}
                     </Layer>
                 </Stage>
+
+                <CanvasControls
+                    scale={navState.scale}
+                    onZoomIn={navActions.zoomIn}
+                    onZoomOut={navActions.zoomOut}
+                    onReset={navActions.resetView}
+                    onFitToScreen={navActions.fitToScreen}
+                    minScale={0.5}
+                    maxScale={4}
+                />
             </div>
         </div>
     )

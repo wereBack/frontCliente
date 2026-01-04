@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import LoginModal from '../auth/LoginModal'
 import { usePlanos } from './hooks/usePlanos'
+import { useReservationSocket } from './hooks/useReservationSocket'
 import { createReservation } from './services/api'
 import PlanoMap from './components/PlanoMap'
 import Legend from './components/Legend'
@@ -9,16 +10,46 @@ import EventSelector from './components/EventSelector'
 import './client.css'
 
 // Helper to get stand status
-const getSpaceStatus = (space: { active: boolean; reservations?: { estado: string }[] }): 'disponible' | 'reservado' | 'bloqueado' => {
+const getSpaceStatus = (space: { active: boolean; reservations?: { estado: string }[] }): 'disponible' | 'pendiente' | 'reservado' | 'bloqueado' => {
     if (!space.active) return 'bloqueado'
-    if (space.reservations && space.reservations.length > 0) return 'reservado'
+    if (space.reservations && space.reservations.length > 0) {
+        const activeReservation = space.reservations.find(r => r.estado === 'RESERVED' || r.estado === 'PENDING')
+        if (activeReservation?.estado === 'PENDING') return 'pendiente'
+        if (activeReservation?.estado === 'RESERVED') return 'reservado'
+    }
     return 'disponible'
 }
 
 const STATUS_LABELS: Record<string, string> = {
     disponible: 'Disponible',
+    pendiente: 'Pendiente',
     reservado: 'Reservado',
     bloqueado: 'Bloqueado',
+}
+
+const STATUS_DESCRIPTIONS: Record<string, string> = {
+    disponible: 'Stand disponible para reserva.',
+    pendiente: 'Reserva pendiente de confirmación.',
+    reservado: 'Este stand ya fue reservado.',
+    bloqueado: 'Stand no disponible.',
+}
+
+// Helper to get effective price (from stand or its zone)
+import type { SpaceData, ZoneData } from './services/api'
+
+const getEffectivePrice = (space: SpaceData, zones: ZoneData[]): number | null => {
+    // First check if space has its own price
+    if (space.price != null && Number(space.price) > 0) {
+        return Number(space.price)
+    }
+    // Otherwise, look for zone price
+    if (space.zone_id) {
+        const zone = zones.find(z => z.id === space.zone_id)
+        if (zone?.price != null && Number(zone.price) > 0) {
+            return Number(zone.price)
+        }
+    }
+    return null
 }
 
 const ClientApp = () => {
@@ -27,6 +58,18 @@ const ClientApp = () => {
     const [selectedEventoId, setSelectedEventoId] = useState<string | null>(null)
     const [selectedPlanoIndex, setSelectedPlanoIndex] = useState(0)
     const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
+    const [searchTerm, setSearchTerm] = useState('')
+    const [statusFilter, setStatusFilter] = useState<string>('todos')
+
+    // WebSocket para actualización en tiempo real
+    const handleSocketChange = useCallback(() => {
+        console.log('🔄 Recargando planos por evento WebSocket...')
+        refetch()
+    }, [refetch])
+
+    useReservationSocket({
+        onAnyChange: handleSocketChange,
+    })
 
     // Filter planos by selected event
     const filteredPlanos = useMemo(() => {
@@ -36,13 +79,18 @@ const ClientApp = () => {
 
     const activePlano = filteredPlanos[selectedPlanoIndex]
     const selectedSpace = activePlano?.spaces.find((s) => s.id === selectedSpaceId)
+    const selectedSpaceStatus = selectedSpace ? getSpaceStatus(selectedSpace) : null
 
-    const availableCount = activePlano
-        ? activePlano.spaces.filter((s) => s.active && (!s.reservations || s.reservations.length === 0)).length
-        : 0
-    const reservedCount = activePlano
-        ? activePlano.spaces.filter((s) => s.reservations && s.reservations.length > 0).length
-        : 0
+    // Filtered spaces for the list
+    const filteredSpaces = useMemo(() => {
+        if (!activePlano) return []
+        return activePlano.spaces.filter((space) => {
+            const matchesSearch = space.name.toLowerCase().includes(searchTerm.toLowerCase())
+            const status = getSpaceStatus(space)
+            const matchesStatus = statusFilter === 'todos' || status === statusFilter
+            return matchesSearch && matchesStatus
+        })
+    }, [activePlano, searchTerm, statusFilter])
 
     // Reset plano index when event changes
     const handleEventChange = (eventoId: string | null) => {
@@ -59,7 +107,7 @@ const ClientApp = () => {
         try {
             await createReservation(selectedSpaceId, user.username)
             await refetch()
-            alert('¡Reserva realizada con éxito!')
+            alert('¡Solicitud enviada! Tu reserva está pendiente de confirmación por el administrador.')
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Error al reservar')
         } finally {
@@ -67,66 +115,47 @@ const ClientApp = () => {
         }
     }
 
-    const selectedSpaceStatus = selectedSpace ? getSpaceStatus(selectedSpace) : null
+    const formatPrice = (price: number | undefined) => {
+        if (price == null) return null
+        return `US$ ${price.toLocaleString('es-AR')} + IVA`
+    }
 
     return (
         <div className="client-app">
-            <header className="client-hero">
-                <div className="hero-row hero-row--top">
-                    <EventSelector
-                        selectedEventoId={selectedEventoId}
-                        onSelectEvento={handleEventChange}
-                    />
-                    <div className="session-actions">
-                        {isAuthenticated ? (
-                            <>
-                                <span className="badge">Hola, {user?.name || 'Usuario'}</span>
-                                <button type="button" className="ghost-btn" onClick={logout}>
-                                    Cerrar sesión
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button type="button" className="ghost-btn" onClick={() => setShowLoginModal(true)}>
-                                    Iniciar sesión
-                                </button>
-                                <button type="button" className="ghost-btn ghost-btn--accent" onClick={() => setShowLoginModal(true)}>
-                                    Registrarse
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                <div className="hero-row hero-row--main">
-                    <div>
-                        <p className="eyebrow">Plano interactivo</p>
-                        <h1>Elegí el stand ideal para tu empresa</h1>
-                        <p className="subtitle">
-                            Visualizá el plano del edificio, seleccioná un stand y confirmá tu reserva para la feria de empleo.
-                        </p>
-                    </div>
-
-                    <div className="hero-stats">
-                        <div className="stat-card">
-                            <p>Stands disponibles</p>
-                            <strong>{availableCount}</strong>
-                        </div>
-                        <div className="stat-card">
-                            <p>Reservados</p>
-                            <strong className="accent">{reservedCount}</strong>
-                        </div>
-                    </div>
+            {/* Top bar */}
+            <header className="client-topbar">
+                <EventSelector
+                    selectedEventoId={selectedEventoId}
+                    onSelectEvento={handleEventChange}
+                />
+                <div className="session-actions">
+                    {isAuthenticated ? (
+                        <>
+                            <span className="user-badge">Hola, {user?.name || 'Usuario'}</span>
+                            <button type="button" className="ghost-btn" onClick={logout}>
+                                Cerrar sesión
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button type="button" className="ghost-btn" onClick={() => setShowLoginModal(true)}>
+                                Iniciar sesión
+                            </button>
+                            <button type="button" className="ghost-btn ghost-btn--accent" onClick={() => setShowLoginModal(true)}>
+                                Registrarse
+                            </button>
+                        </>
+                    )}
                 </div>
             </header>
 
-            {/* Plano selector */}
+            {/* Plano selector tabs */}
             {filteredPlanos.length > 1 && (
-                <div className="floor-switcher">
+                <div className="floor-tabs">
                     {filteredPlanos.map((plano, index) => (
                         <button
                             key={plano.id}
-                            className={`floor-switcher__btn ${selectedPlanoIndex === index ? 'floor-switcher__btn--active' : ''}`}
+                            className={`floor-tab ${selectedPlanoIndex === index ? 'floor-tab--active' : ''}`}
                             onClick={() => {
                                 setSelectedPlanoIndex(index)
                                 setSelectedSpaceId(null)
@@ -138,7 +167,7 @@ const ClientApp = () => {
                 </div>
             )}
 
-            <main className="client-flow">
+            <main className="client-main">
                 {isLoading && (
                     <div className="loading-message">
                         <p>Cargando planos...</p>
@@ -157,87 +186,167 @@ const ClientApp = () => {
                 {!isLoading && !error && planos.length === 0 && (
                     <div className="empty-message">
                         <p>No hay planos disponibles todavía.</p>
-                        <p>El administrador debe crear y guardar un plano primero.</p>
                     </div>
                 )}
 
                 {!isLoading && !error && activePlano && (
                     <>
+                        {/* Map Section */}
                         <section className="map-section">
-                            <div className="map-card">
+                            <div className="map-container">
                                 <PlanoMap
                                     plano={activePlano}
                                     selectedSpaceId={selectedSpaceId}
                                     onSelectSpace={setSelectedSpaceId}
                                 />
                             </div>
-                            <Legend />
+                            <Legend zones={activePlano.zones} />
                         </section>
 
-                        <section className="details-grid">
-                            <div className="details-column">
-                                <div className="stand-details">
-                                    <h3 className="stand-details__title">Detalle del stand</h3>
-                                    {selectedSpace ? (
-                                        <div className="stand-details__content">
-                                            <p><strong>Nombre:</strong> {selectedSpace.name}</p>
-                                            <p><strong>Dimensiones:</strong> {selectedSpace.width}×{selectedSpace.height} px</p>
-                                            <p><strong>Estado:</strong> {STATUS_LABELS[selectedSpaceStatus || 'disponible']}</p>
+                        {/* Details Section - Two columns */}
+                        <section className="details-section">
+                            {/* Left Column - Stand Details */}
+                            <div className="stand-detail-card">
+                                {selectedSpace ? (
+                                    <>
+                                        <div className="stand-detail-header">
+                                            <div className="stand-detail-title">
+                                                <span className="stand-code">{selectedSpace.name}</span>
+                                                <h2>{STATUS_DESCRIPTIONS[selectedSpaceStatus || 'disponible']}</h2>
+                                            </div>
+                                            <span className={`status-badge status-badge--${selectedSpaceStatus}`}>
+                                                {STATUS_LABELS[selectedSpaceStatus || 'disponible']}
+                                            </span>
+                                        </div>
+
+                                        <div className="stand-detail-meta">
+                                            <div className="meta-item">
+                                                <span className="meta-label">Dimensiones</span>
+                                                <span className="meta-value">{selectedSpace.width} x {selectedSpace.height} m</span>
+                                            </div>
+                                            <div className="meta-item">
+                                                <span className="meta-label">Precio</span>
+                                                <span className="meta-value meta-value--price">
+                                                    {(() => {
+                                                        const effectivePrice = getEffectivePrice(selectedSpace, activePlano.zones)
+                                                        return effectivePrice ? formatPrice(effectivePrice) : 'Consultar'
+                                                    })()}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div className="stand-detail-actions">
                                             {isAuthenticated && selectedSpaceStatus === 'disponible' && (
                                                 <button
                                                     className="reserve-btn"
                                                     onClick={handleReserve}
                                                     disabled={isReserving}
                                                 >
-                                                    {isReserving ? 'Reservando...' : 'Reservar este stand'}
+                                                    {isReserving ? 'Solicitando...' : 'Solicitar reserva'}
                                                 </button>
                                             )}
-                                            {isAuthenticated && selectedSpaceStatus === 'reservado' && (
-                                                <p className="hint" style={{ color: '#d97706' }}>Este stand ya está reservado</p>
+                                            {!isAuthenticated && selectedSpaceStatus === 'disponible' && (
+                                                <button
+                                                    className="reserve-btn reserve-btn--outline"
+                                                    onClick={() => setShowLoginModal(true)}
+                                                >
+                                                    Iniciar sesión para reservar
+                                                </button>
+                                            )}
+                                            {selectedSpaceStatus === 'pendiente' && (
+                                                <div className="status-message status-message--pending">
+                                                    ⏳ Reserva pendiente de confirmación por el administrador
+                                                </div>
+                                            )}
+                                            {selectedSpaceStatus === 'reservado' && (
+                                                <div className="status-message status-message--reserved">
+                                                    ✓ Este stand ya fue reservado
+                                                </div>
                                             )}
                                             {selectedSpaceStatus === 'bloqueado' && (
-                                                <p className="hint" style={{ color: '#dc2626' }}>Este stand no está disponible</p>
-                                            )}
-                                            {!isAuthenticated && selectedSpaceStatus === 'disponible' && (
-                                                <p className="hint">Iniciá sesión para reservar</p>
+                                                <div className="status-message status-message--blocked">
+                                                    ✕ Este stand no está disponible
+                                                </div>
                                             )}
                                         </div>
-                                    ) : (
-                                        <p className="stand-details__empty">Seleccioná un stand en el plano para ver sus detalles.</p>
-                                    )}
-                                </div>
+                                    </>
+                                ) : (
+                                    <div className="stand-detail-empty">
+                                        <div className="empty-icon">📍</div>
+                                        <p>Seleccioná un stand en el plano para ver sus detalles.</p>
+                                    </div>
+                                )}
                             </div>
 
-                            <div className="details-column">
-                                <div className="stand-list">
-                                    <h3 className="stand-list__title">Lista de stands</h3>
-                                    <ul className="stand-list__items">
-                                        {activePlano.spaces.map((space) => (
+                            {/* Right Column - Stand List */}
+                            <div className="stand-list-card">
+                                <div className="stand-list-header">
+                                    <span className="eyebrow">Explorar</span>
+                                    <h3>Listado de stands</h3>
+                                </div>
+
+                                <div className="stand-list-filters">
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por código o nombre..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="search-input"
+                                    />
+                                    <select
+                                        value={statusFilter}
+                                        onChange={(e) => setStatusFilter(e.target.value)}
+                                        className="filter-select"
+                                    >
+                                        <option value="todos">Todos</option>
+                                        <option value="disponible">Disponibles</option>
+                                        <option value="pendiente">Pendientes</option>
+                                        <option value="reservado">Reservados</option>
+                                        <option value="bloqueado">Bloqueados</option>
+                                    </select>
+                                </div>
+
+                                <ul className="stand-list">
+                                    {filteredSpaces.map((space) => {
+                                        const status = getSpaceStatus(space)
+                                        return (
                                             <li
                                                 key={space.id}
-                                                className={`stand-list__item ${selectedSpaceId === space.id ? 'stand-list__item--active' : ''}`}
+                                                className={`stand-list-item ${selectedSpaceId === space.id ? 'stand-list-item--active' : ''}`}
                                                 onClick={() => setSelectedSpaceId(space.id)}
                                             >
-                                                <span className="stand-list__name">{space.name}</span>
-                                                <span className={`stand-list__status stand-list__status--${space.active ? 'available' : 'blocked'}`}>
-                                                    {space.active ? 'Disponible' : 'No disponible'}
-                                                </span>
+                                                <div className="stand-list-item__info">
+                                                    <span className="stand-list-item__name">{space.name}</span>
+                                                    <span className="stand-list-item__size">
+                                                        {space.width} x {space.height} m
+                                                    </span>
+                                                </div>
+                                                <div className="stand-list-item__meta">
+                                                    <span className="stand-list-item__price">
+                                                        {(() => {
+                                                            const effectivePrice = getEffectivePrice(space, activePlano.zones)
+                                                            return effectivePrice ? `US$ ${effectivePrice.toLocaleString('es-AR')}` : 'Consultar'
+                                                        })()}
+                                                    </span>
+                                                    <span className={`stand-list-item__status stand-list-item__status--${status}`}>
+                                                        {STATUS_LABELS[status]}
+                                                    </span>
+                                                </div>
                                             </li>
-                                        ))}
-                                    </ul>
-                                </div>
+                                        )
+                                    })}
+                                    {filteredSpaces.length === 0 && (
+                                        <li className="stand-list-empty">
+                                            No se encontraron stands con esos filtros.
+                                        </li>
+                                    )}
+                                </ul>
                             </div>
                         </section>
                     </>
                 )}
             </main>
-
-            <footer className="contact-footer">
-                <div className="contact-card">
-                    <h3>¿Tenés dudas?</h3>
-                    <p>Contactanos a <a href="mailto:contacto@feria.com">contacto@feria.com</a></p>
-                </div>
-            </footer>
 
             <LoginModal />
         </div>

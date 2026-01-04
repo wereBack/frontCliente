@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { Stand, Zone } from '../store/standStore'
 import { useStandStore } from '../store/standStore'
+import { updateSpace, updateZone as updateZoneApi } from '../services/api'
 
 const StandInspector = () => {
   const stands = useStandStore((state) => state.stands)
@@ -10,6 +12,10 @@ const StandInspector = () => {
   const updateZone = useStandStore((state) => state.updateZone)
   const removeStand = useStandStore((state) => state.removeStand)
   const removeZone = useStandStore((state) => state.removeZone)
+  const planoId = useStandStore((state) => state.planoId)
+
+  const [savingStandId, setSavingStandId] = useState<string | null>(null)
+  const [savingZoneId, setSavingZoneId] = useState<string | null>(null)
 
   const handleLabelChange = (stand: Stand, label: string) => {
     updateStand(stand.id, { label: label.trim() === '' ? undefined : label })
@@ -29,8 +35,47 @@ const StandInspector = () => {
     updateZone(zone.id, { label: label.trim() === '' ? undefined : label })
   }
 
+  const handleSaveStand = async (stand: Stand, index: number) => {
+    if (!planoId) {
+      alert('Primero guarda el plano completo para poder guardar cambios individuales')
+      return
+    }
+    setSavingStandId(stand.id)
+    try {
+      await updateSpace(stand.id, {
+        name: stand.label || `Stand ${index + 1}`,
+        price: stand.price ?? null,
+      })
+      alert('Stand guardado correctamente')
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al guardar stand')
+    } finally {
+      setSavingStandId(null)
+    }
+  }
+
+  const handleSaveZone = async (zone: Zone, index: number) => {
+    if (!planoId) {
+      alert('Primero guarda el plano completo para poder guardar cambios individuales')
+      return
+    }
+    setSavingZoneId(zone.id)
+    try {
+      await updateZoneApi(zone.id, {
+        name: zone.label || `Zona ${index + 1}`,
+        price: zone.price ?? null,
+        color: zone.color,
+      })
+      alert('Zona guardada correctamente')
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Error al guardar zona')
+    } finally {
+      setSavingZoneId(null)
+    }
+  }
+
   return (
-    <aside className="inspector">
+    <>
       <div className="inspector__header">
         <div>
           <p className="inspector__title">Stands</p>
@@ -47,8 +92,7 @@ const StandInspector = () => {
           {stands.map((stand, index) => (
             <li
               key={stand.id}
-              className={`inspector__item ${selectedStandId === stand.id ? 'inspector__item--active' : ''
-                }`}
+              className={`inspector__item ${selectedStandId === stand.id ? 'inspector__item--active' : ''}`}
             >
               <button
                 className="inspector__item-main"
@@ -67,32 +111,38 @@ const StandInspector = () => {
                     className="inspector__input"
                     placeholder={`Stand ${index + 1}`}
                     value={stand.label ?? ''}
-                    onChange={(event) =>
-                      handleLabelChange(stand, event.target.value)
-                    }
+                    onChange={(event) => handleLabelChange(stand, event.target.value)}
                   />
                 </label>
                 <div className="inspector__meta">
                   <span>{formatStandMeta(stand)}</span>
                 </div>
                 <label className="inspector__field">
-                  Precio
+                  Precio (US$)
                   <input
                     className="inspector__input"
                     type="number"
-                    placeholder="Precio (opcional)"
+                    placeholder="0"
                     value={stand.price ?? ''}
-                    onChange={(event) =>
-                      handlePriceChange(stand, event.target.value)
-                    }
+                    onChange={(event) => handlePriceChange(stand, event.target.value)}
                   />
                 </label>
-                <button
-                  className="inspector__delete"
-                  onClick={() => removeStand(stand.id)}
-                >
-                  Eliminar
-                </button>
+                <div className="inspector__actions">
+                  <button
+                    className="inspector__save"
+                    onClick={() => handleSaveStand(stand, index)}
+                    disabled={savingStandId === stand.id || !planoId}
+                    title={!planoId ? 'Guarda el plano primero' : 'Guardar cambios'}
+                  >
+                    {savingStandId === stand.id ? 'Guardando...' : '💾 Guardar'}
+                  </button>
+                  <button
+                    className="inspector__delete"
+                    onClick={() => removeStand(stand.id)}
+                  >
+                    🗑️ Eliminar
+                  </button>
+                </div>
               </div>
             </li>
           ))}
@@ -109,7 +159,7 @@ const StandInspector = () => {
           <ul className="inspector__zone-list">
             {zones.map((zone, index) => (
               <li key={zone.id} className="inspector__zone-item">
-                <div className="inspector__zone-row">
+                <div className="inspector__zone-header">
                   <span
                     className="inspector__zone-dot"
                     style={{ backgroundColor: zone.color }}
@@ -120,6 +170,32 @@ const StandInspector = () => {
                     value={zone.label ?? ''}
                     onChange={(e) => handleZoneLabelChange(zone, e.target.value)}
                   />
+                </div>
+                <div className="inspector__zone-fields">
+                  <input
+                    className="inspector__input inspector__input--small"
+                    type="number"
+                    placeholder="Precio (US$)"
+                    value={zone.price ?? ''}
+                    onChange={(e) => handleZonePriceChange(zone, e.target.value)}
+                  />
+                  <input
+                    className="inspector__input inspector__input--color"
+                    type="color"
+                    value={zone.color}
+                    onChange={(e) => updateZone(zone.id, { color: e.target.value })}
+                    title="Color de la zona"
+                  />
+                </div>
+                <div className="inspector__zone-actions">
+                  <button
+                    className="inspector__save inspector__save--small"
+                    onClick={() => handleSaveZone(zone, index)}
+                    disabled={savingZoneId === zone.id || !planoId}
+                    title={!planoId ? 'Guarda el plano primero' : 'Guardar cambios'}
+                  >
+                    {savingZoneId === zone.id ? '...' : '💾'}
+                  </button>
                   <button
                     className="inspector__zone-delete"
                     onClick={() => removeZone(zone.id)}
@@ -128,20 +204,12 @@ const StandInspector = () => {
                     ×
                   </button>
                 </div>
-                <input
-                  className="inspector__input inspector__input--small"
-                  type="number"
-                  placeholder="Precio zona"
-                  value={zone.price ?? ''}
-                  onChange={(e) => handleZonePriceChange(zone, e.target.value)}
-                  style={{ marginTop: '4px' }}
-                />
               </li>
             ))}
           </ul>
         )}
       </section>
-    </aside>
+    </>
   )
 }
 

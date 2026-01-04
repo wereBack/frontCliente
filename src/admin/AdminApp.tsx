@@ -3,6 +3,7 @@ import StandCanvas from './components/StandCanvas'
 import StandInspector from './components/StandInspector'
 import Toolbar from './components/Toolbar'
 import EventSelector from './components/EventSelector'
+import PendingReservations from './components/PendingReservations'
 import { useAuth } from '../auth/AuthContext'
 import { useStandStore } from './store/standStore'
 import './admin.css'
@@ -45,7 +46,10 @@ const AdminApp = () => {
                 </section>
             </main>
 
-            <StandInspector />
+            <aside className="inspector">
+                <PendingReservations />
+                <StandInspector />
+            </aside>
         </div>
     )
 }
