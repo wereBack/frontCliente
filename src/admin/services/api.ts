@@ -249,6 +249,43 @@ export async function updateSpace(id: string, data: SpaceUpdateData): Promise<Sp
     return response.json();
 }
 
+export async function deleteSpace(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/spaces/${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al eliminar stand');
+    }
+}
+
+export interface SpaceCreateData {
+    plano_id: string;
+    kind: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+    name: string;
+    price?: number | null;
+    zone_id?: string;
+    points?: number[];
+}
+
+export async function createSpace(data: SpaceCreateData): Promise<SpaceData> {
+    const response = await fetch(`${API_BASE}/spaces/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear stand');
+    }
+    return response.json();
+}
+
 // ==================== ZONES API ====================
 
 export interface ZoneUpdateData {
@@ -267,6 +304,42 @@ export async function updateZone(id: string, data: ZoneUpdateData): Promise<Zone
     if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Error al actualizar zona');
+    }
+    return response.json();
+}
+
+export async function deleteZone(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/zones/${id}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al eliminar zona');
+    }
+}
+
+export interface ZoneCreateData {
+    plano_id: string;
+    kind: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+    name: string;
+    price?: number | null;
+    points?: number[];
+}
+
+export async function createZone(data: ZoneCreateData): Promise<ZoneData> {
+    const response = await fetch(`${API_BASE}/zones/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear zona');
     }
     return response.json();
 }

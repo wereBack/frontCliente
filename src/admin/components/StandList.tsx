@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStandStore, type Stand, type ReservationState } from '../store/standStore'
-import { updateSpace as apiUpdateSpace } from '../services/api'
+import { updateSpace as apiUpdateSpace, deleteSpace as apiDeleteSpace, createSpace as apiCreateSpace } from '../services/api'
 
 const STATUS_OPTIONS: { value: ReservationState; label: string; color: string }[] = [
     { value: 'AVAILABLE', label: 'Disponible', color: '#22c55e' },
@@ -12,13 +12,16 @@ const STATUS_OPTIONS: { value: ReservationState; label: string; color: string }[
 const StandList = () => {
     const stands = useStandStore((state) => state.stands)
     const selectedStandId = useStandStore((state) => state.selectedStandId)
+    const planoId = useStandStore((state) => state.planoId)
     const selectStand = useStandStore((state) => state.selectStand)
     const updateStand = useStandStore((state) => state.updateStand)
     const removeStand = useStandStore((state) => state.removeStand)
+    const replaceStandId = useStandStore((state) => state.replaceStandId)
 
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [editValues, setEditValues] = useState<{ name: string; price: string; status: ReservationState }>({ name: '', price: '', status: 'AVAILABLE' })
     const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
     // Get stand type label
     const getTypeLabel = (kind: string) => {
@@ -90,29 +93,88 @@ const StandList = () => {
 
         // Check if UUID (saved in DB)
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stand.id)
-        if (isUUID) {
-            setIsSaving(true)
-            try {
+        setIsSaving(true)
+        
+        try {
+            if (isUUID) {
+                // Update existing stand
                 await apiUpdateSpace(stand.id, {
                     name: editValues.name,
                     price: parseFloat(editValues.price) || null,
                     status: editValues.status,
                 })
-            } catch (e) {
-                console.error('Error saving stand:', e)
-            } finally {
-                setIsSaving(false)
+            } else {
+                // Create new stand
+                if (!planoId) {
+                    alert('Primero debes guardar el área antes de guardar stands individuales')
+                    setIsSaving(false)
+                    return
+                }
+                
+                // Build create data based on stand type
+                const createData: Parameters<typeof apiCreateSpace>[0] = {
+                    plano_id: planoId,
+                    kind: stand.kind,
+                    x: stand.kind === 'rect' ? stand.x : 0,
+                    y: stand.kind === 'rect' ? stand.y : 0,
+                    width: stand.kind === 'rect' ? stand.width : 100,
+                    height: stand.kind === 'rect' ? stand.height : 100,
+                    color: stand.color,
+                    name: editValues.name || 'Nuevo Stand',
+                    price: parseFloat(editValues.price) || null,
+                }
+                
+                // Add points for polygon/free shapes
+                if ('points' in stand) {
+                    createData.points = stand.points
+                    // Calculate bounding box for x, y, width, height
+                    const xs = stand.points.filter((_, i) => i % 2 === 0)
+                    const ys = stand.points.filter((_, i) => i % 2 === 1)
+                    createData.x = Math.min(...xs)
+                    createData.y = Math.min(...ys)
+                    createData.width = Math.max(...xs) - createData.x
+                    createData.height = Math.max(...ys) - createData.y
+                }
+                
+                const created = await apiCreateSpace(createData)
+                // Replace local ID with backend UUID
+                if (created.id) {
+                    replaceStandId(stand.id, created.id)
+                    setExpandedId(created.id)
+                }
             }
+        } catch (e) {
+            console.error('Error saving stand:', e)
+            alert('Error al guardar el stand')
+        } finally {
+            setIsSaving(false)
         }
     }
 
     // Delete stand
-    const handleDelete = (standId: string) => {
-        if (confirm('¿Eliminar este stand?')) {
-            removeStand(standId)
-            if (expandedId === standId) {
-                setExpandedId(null)
+    const handleDelete = async (standId: string) => {
+        if (!confirm('¿Eliminar este stand?')) return
+        
+        // Check if UUID (saved in DB)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(standId)
+        
+        if (isUUID) {
+            setIsDeleting(standId)
+            try {
+                await apiDeleteSpace(standId)
+            } catch (e) {
+                console.error('Error deleting stand:', e)
+                alert('Error al eliminar el stand')
+                setIsDeleting(null)
+                return
             }
+            setIsDeleting(null)
+        }
+        
+        // Remove from local store
+        removeStand(standId)
+        if (expandedId === standId) {
+            setExpandedId(null)
         }
     }
 
@@ -220,8 +282,9 @@ const StandList = () => {
                                         <button
                                             className="stand-list-item__btn stand-list-item__btn--delete"
                                             onClick={() => handleDelete(stand.id)}
+                                            disabled={isDeleting === stand.id}
                                         >
-                                            Eliminar
+                                            {isDeleting === stand.id ? '...' : 'Eliminar'}
                                         </button>
                                     </div>
                                 </div>

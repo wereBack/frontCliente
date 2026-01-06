@@ -6,13 +6,33 @@ import {
     rejectReservation,
     type ReservationData,
 } from '../services/api'
+import { useStandStore } from '../store/standStore'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5001'
+
+// Tipo para eventos de espacio
+interface SpaceEvent {
+    event: string
+    space: {
+        id: string
+        name: string
+        active: boolean
+        reservations: {
+            id: string
+            estado: string
+            asignee: string | null
+        }[]
+    }
+    plano_id?: string
+}
 
 const PendingReservations = () => {
     const [reservations, setReservations] = useState<ReservationData[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    
+    // Acceso al store para actualizar stands
+    const updateStand = useStandStore((state) => state.updateStand)
 
     // Cargar reservas pendientes
     const loadReservations = useCallback(async () => {
@@ -27,6 +47,18 @@ const PendingReservations = () => {
         }
     }, [])
 
+    // Helper para calcular el estado del stand basado en los datos
+    const getReservationStatus = (space: SpaceEvent['space']) => {
+        if (!space.active) return 'BLOCKED'
+        const activeReservation = space.reservations?.find(
+            r => r.estado === 'RESERVED' || r.estado === 'PENDING'
+        )
+        if (activeReservation) {
+            return activeReservation.estado === 'RESERVED' ? 'RESERVED' : 'PENDING'
+        }
+        return 'AVAILABLE'
+    }
+
     // Conectar WebSocket
     useEffect(() => {
         const newSocket = io(`${API_BASE}/reservas`, {
@@ -34,48 +66,82 @@ const PendingReservations = () => {
         })
 
         newSocket.on('connect', () => {
-            console.log('WebSocket conectado al namespace /reservas')
+            console.log('🔌 Admin WebSocket conectado al namespace /reservas')
         })
 
         newSocket.on('disconnect', () => {
-            console.log('WebSocket desconectado')
+            console.log('❌ Admin WebSocket desconectado')
         })
 
         // Escuchar eventos de reservas
         newSocket.on('reservation_created', (data) => {
-            console.log('Nueva reserva creada:', data)
+            console.log('📥 Nueva reserva creada:', data)
             if (data.reservation?.estado === 'PENDING') {
-                setReservations((prev) => [...prev, data.reservation])
+                setReservations((prev) => {
+                    // Evitar duplicados
+                    if (prev.find(r => r.id === data.reservation.id)) return prev
+                    return [...prev, data.reservation]
+                })
+                // Actualizar el stand en el canvas
+                const spaceId = data.reservation.space_id
+                if (spaceId) {
+                    updateStand(spaceId, { reservationStatus: 'PENDING' })
+                }
             }
         })
 
         newSocket.on('reservation_updated', (data) => {
-            console.log('Reserva actualizada:', data)
+            console.log('🔄 Reserva actualizada:', data)
             if (data.reservation?.estado === 'RESERVED') {
                 setReservations((prev) =>
                     prev.filter((r) => r.id !== data.reservation.id)
                 )
+                // Actualizar el stand en el canvas
+                const spaceId = data.reservation.space_id
+                if (spaceId) {
+                    updateStand(spaceId, { reservationStatus: 'RESERVED' })
+                }
             }
         })
 
         newSocket.on('reservation_expired', (data) => {
-            console.log('Reserva expirada:', data)
+            console.log('⏰ Reserva expirada:', data)
             setReservations((prev) =>
                 prev.filter((r) => r.id !== data.reservation?.id)
             )
+            // Actualizar el stand en el canvas
+            const spaceId = data.reservation?.space_id
+            if (spaceId) {
+                updateStand(spaceId, { reservationStatus: 'AVAILABLE' })
+            }
         })
 
         newSocket.on('reservation_cancelled', (data) => {
-            console.log('Reserva cancelada:', data)
+            console.log('🚫 Reserva cancelada:', data)
             setReservations((prev) =>
                 prev.filter((r) => r.id !== data.reservation?.id)
             )
+            // Actualizar el stand en el canvas
+            const spaceId = data.reservation?.space_id
+            if (spaceId) {
+                updateStand(spaceId, { reservationStatus: 'AVAILABLE' })
+            }
+        })
+
+        // Escuchar actualizaciones de espacios (nuevo evento)
+        newSocket.on('space_updated', (data: SpaceEvent) => {
+            console.log('🏢 Espacio actualizado:', data)
+            const spaceId = data.space?.id
+            if (spaceId) {
+                const newStatus = getReservationStatus(data.space)
+                updateStand(spaceId, { reservationStatus: newStatus as 'AVAILABLE' | 'PENDING' | 'RESERVED' | 'BLOCKED' })
+            }
         })
 
         return () => {
             newSocket.disconnect()
         }
-    }, [])
+    }, [updateStand])
 
     // Cargar reservas al inicio
     useEffect(() => {
@@ -85,8 +151,17 @@ const PendingReservations = () => {
     // Confirmar reserva
     const handleConfirm = async (id: string) => {
         try {
-            await confirmReservation(id)
+            // Encontrar la reserva para obtener el space_id
+            const reservation = reservations.find(r => r.id === id)
+            const spaceId = reservation?.space_id
+            
+            const confirmedReservation = await confirmReservation(id)
             setReservations((prev) => prev.filter((r) => r.id !== id))
+            
+            // Actualizar el estado del stand en el canvas a RESERVED
+            if (spaceId) {
+                updateStand(spaceId, { reservationStatus: 'RESERVED' })
+            }
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Error al confirmar')
         }
@@ -95,8 +170,17 @@ const PendingReservations = () => {
     // Rechazar reserva
     const handleReject = async (id: string) => {
         try {
+            // Encontrar la reserva para obtener el space_id
+            const reservation = reservations.find(r => r.id === id)
+            const spaceId = reservation?.space_id
+            
             await rejectReservation(id)
             setReservations((prev) => prev.filter((r) => r.id !== id))
+            
+            // Actualizar el estado del stand en el canvas a AVAILABLE
+            if (spaceId) {
+                updateStand(spaceId, { reservationStatus: 'AVAILABLE' })
+            }
         } catch (err) {
             alert(err instanceof Error ? err.message : 'Error al rechazar')
         }

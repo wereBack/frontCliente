@@ -16,11 +16,27 @@ interface ReservationEvent {
     plano_id?: string
 }
 
+interface SpaceEvent {
+    event: string
+    space: {
+        id: string
+        name: string
+        active: boolean
+        reservations: {
+            id: string
+            estado: string
+            asignee: string | null
+        }[]
+    }
+    plano_id?: string
+}
+
 interface UseReservationSocketOptions {
     onReservationCreated?: (data: ReservationEvent) => void
     onReservationUpdated?: (data: ReservationEvent) => void
     onReservationExpired?: (data: ReservationEvent) => void
     onReservationCancelled?: (data: ReservationEvent) => void
+    onSpaceUpdated?: (data: SpaceEvent) => void
     onAnyChange?: () => void
 }
 
@@ -77,6 +93,13 @@ export function useReservationSocket(options: UseReservationSocketOptions = {}) 
         socket.on('reservation_cancelled', (data: ReservationEvent) => {
             console.log('🚫 Reserva cancelada:', data)
             optionsRef.current.onReservationCancelled?.(data)
+            optionsRef.current.onAnyChange?.()
+        })
+
+        // Evento cuando un admin cambia el estado de un espacio manualmente
+        socket.on('space_updated', (data: SpaceEvent) => {
+            console.log('🏢 Espacio actualizado:', data)
+            optionsRef.current.onSpaceUpdated?.(data)
             optionsRef.current.onAnyChange?.()
         })
 

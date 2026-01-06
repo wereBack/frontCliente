@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { useStandStore, type Zone } from '../store/standStore'
+import { updateZone as apiUpdateZone, deleteZone as apiDeleteZone, createZone as apiCreateZone } from '../services/api'
 
 const ZoneList = () => {
     const zones = useStandStore((state) => state.zones)
+    const planoId = useStandStore((state) => state.planoId)
     const updateZone = useStandStore((state) => state.updateZone)
     const removeZone = useStandStore((state) => state.removeZone)
+    const replaceZoneId = useStandStore((state) => state.replaceZoneId)
 
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [editValues, setEditValues] = useState<{ name: string; price: string; color: string }>({ name: '', price: '', color: '#ffb703' })
+    const [isSaving, setIsSaving] = useState(false)
+    const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
     // Get zone type label
     const getTypeLabel = (kind: string) => {
@@ -54,21 +59,98 @@ const ZoneList = () => {
     }
 
     // Save changes
-    const handleSave = (zone: Zone) => {
-        updateZone(zone.id, {
+    const handleSave = async (zone: Zone) => {
+        const updates = {
             label: editValues.name,
             price: editValues.price ? parseFloat(editValues.price) : undefined,
             color: editValues.color,
-        })
+        }
+        updateZone(zone.id, updates)
+        
+        // Check if UUID (saved in DB)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(zone.id)
+        setIsSaving(true)
+        
+        try {
+            if (isUUID) {
+                // Update existing zone
+                await apiUpdateZone(zone.id, {
+                    name: editValues.name,
+                    price: editValues.price ? parseFloat(editValues.price) : null,
+                    color: editValues.color,
+                })
+            } else {
+                // Create new zone
+                if (!planoId) {
+                    alert('Primero debes guardar el área antes de guardar zonas individuales')
+                    setIsSaving(false)
+                    return
+                }
+                
+                // Build create data based on zone type
+                const createData: Parameters<typeof apiCreateZone>[0] = {
+                    plano_id: planoId,
+                    kind: zone.kind,
+                    x: zone.kind === 'rect' ? zone.x : 0,
+                    y: zone.kind === 'rect' ? zone.y : 0,
+                    width: zone.kind === 'rect' ? zone.width : 100,
+                    height: zone.kind === 'rect' ? zone.height : 100,
+                    color: editValues.color,
+                    name: editValues.name || 'Nueva Zona',
+                    price: editValues.price ? parseFloat(editValues.price) : null,
+                }
+                
+                // Add points for polygon/free shapes
+                if ('points' in zone) {
+                    createData.points = zone.points
+                    // Calculate bounding box for x, y, width, height
+                    const xs = zone.points.filter((_, i) => i % 2 === 0)
+                    const ys = zone.points.filter((_, i) => i % 2 === 1)
+                    createData.x = Math.min(...xs)
+                    createData.y = Math.min(...ys)
+                    createData.width = Math.max(...xs) - createData.x
+                    createData.height = Math.max(...ys) - createData.y
+                }
+                
+                const created = await apiCreateZone(createData)
+                // Replace local ID with backend UUID
+                if (created.id) {
+                    replaceZoneId(zone.id, created.id)
+                    setExpandedId(created.id)
+                }
+            }
+        } catch (e) {
+            console.error('Error saving zone:', e)
+            alert('Error al guardar la zona')
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     // Delete zone
-    const handleDelete = (zoneId: string) => {
-        if (confirm('¿Eliminar esta zona?')) {
-            removeZone(zoneId)
-            if (expandedId === zoneId) {
-                setExpandedId(null)
+    const handleDelete = async (zoneId: string) => {
+        if (!confirm('¿Eliminar esta zona?')) return
+        
+        // Check if UUID (saved in DB)
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(zoneId)
+        
+        if (isUUID) {
+            setIsDeleting(zoneId)
+            try {
+                await apiDeleteZone(zoneId)
+            } catch (e) {
+                console.error('Error deleting zone:', e)
+                alert('Error al eliminar la zona')
+                setIsDeleting(null)
+                return
             }
+            setIsDeleting(null)
+        }
+        
+        // Remove from local store
+        removeZone(zoneId)
+        if (expandedId === zoneId) {
+            setExpandedId(null)
         }
     }
 
@@ -163,14 +245,16 @@ const ZoneList = () => {
                                         <button
                                             className="zone-list-item__btn zone-list-item__btn--save"
                                             onClick={() => handleSave(zone)}
+                                            disabled={isSaving}
                                         >
-                                            💾
+                                            {isSaving ? '...' : 'Guardar'}
                                         </button>
                                         <button
                                             className="zone-list-item__btn zone-list-item__btn--delete"
                                             onClick={() => handleDelete(zone.id)}
+                                            disabled={isDeleting === zone.id}
                                         >
-                                            🗑️
+                                            {isDeleting === zone.id ? '...' : 'Eliminar'}
                                         </button>
                                     </div>
                                 </div>
