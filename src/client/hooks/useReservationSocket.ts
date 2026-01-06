@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
+import keycloak from '../../auth/keycloak'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5001'
 
@@ -16,11 +17,27 @@ interface ReservationEvent {
     plano_id?: string
 }
 
+interface SpaceEvent {
+    event: string
+    space: {
+        id: string
+        name: string
+        active: boolean
+        reservations: {
+            id: string
+            estado: string
+            asignee: string | null
+        }[]
+    }
+    plano_id?: string
+}
+
 interface UseReservationSocketOptions {
     onReservationCreated?: (data: ReservationEvent) => void
     onReservationUpdated?: (data: ReservationEvent) => void
     onReservationExpired?: (data: ReservationEvent) => void
     onReservationCancelled?: (data: ReservationEvent) => void
+    onSpaceUpdated?: (data: SpaceEvent) => void
     onAnyChange?: () => void
 }
 
@@ -34,49 +51,49 @@ export function useReservationSocket(options: UseReservationSocketOptions = {}) 
     const connect = useCallback(() => {
         if (socketRef.current?.connected) return
 
-        console.log('🔌 Conectando WebSocket a', `${API_BASE}/reservas`)
+        // Enviar token si el usuario está autenticado
+        const token = keycloak.authenticated ? keycloak.token : undefined
         
         const socket = io(`${API_BASE}/reservas`, {
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
-        })
-
-        socket.on('connect', () => {
-            console.log('✅ WebSocket conectado al namespace /reservas')
-        })
-
-        socket.on('disconnect', (reason) => {
-            console.log('❌ WebSocket desconectado:', reason)
+            ...(token && { auth: { token }, query: { token } }),
         })
 
         socket.on('connect_error', (error) => {
-            console.log('⚠️ Error de conexión WebSocket:', error.message)
+            console.warn('Error de conexion WebSocket:', error.message)
+        })
+        
+        socket.on('auth_error', (data: { error: string }) => {
+            console.error('Error de autenticacion WebSocket:', data.error)
         })
 
         // Eventos de reservas
         socket.on('reservation_created', (data: ReservationEvent) => {
-            console.log('📥 Nueva reserva creada:', data)
             optionsRef.current.onReservationCreated?.(data)
             optionsRef.current.onAnyChange?.()
         })
 
         socket.on('reservation_updated', (data: ReservationEvent) => {
-            console.log('🔄 Reserva actualizada:', data)
             optionsRef.current.onReservationUpdated?.(data)
             optionsRef.current.onAnyChange?.()
         })
 
         socket.on('reservation_expired', (data: ReservationEvent) => {
-            console.log('⏰ Reserva expirada:', data)
             optionsRef.current.onReservationExpired?.(data)
             optionsRef.current.onAnyChange?.()
         })
 
         socket.on('reservation_cancelled', (data: ReservationEvent) => {
-            console.log('🚫 Reserva cancelada:', data)
             optionsRef.current.onReservationCancelled?.(data)
+            optionsRef.current.onAnyChange?.()
+        })
+
+        // Evento cuando un admin cambia el estado de un espacio manualmente
+        socket.on('space_updated', (data: SpaceEvent) => {
+            optionsRef.current.onSpaceUpdated?.(data)
             optionsRef.current.onAnyChange?.()
         })
 
@@ -85,7 +102,6 @@ export function useReservationSocket(options: UseReservationSocketOptions = {}) 
 
     const disconnect = useCallback(() => {
         if (socketRef.current) {
-            console.log('🔌 Desconectando WebSocket...')
             socketRef.current.disconnect()
             socketRef.current = null
         }

@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useState } from 'react'
 import { useStandStore } from '../store/standStore'
 
 type ToolbarMode = 'stands' | 'zones'
@@ -16,11 +16,7 @@ const ZONE_TOOLS = [
   { id: 'zone-paint', label: 'Pintar zona', desc: 'Cambia el color de zonas' },
 ] as const
 
-type ToolbarProps = {
-  onBackgroundChange: (file?: string) => void
-}
-
-const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
+const Toolbar = () => {
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode>('stands')
 
   const mode = useStandStore((state) => state.mode)
@@ -28,42 +24,11 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
   const stands = useStandStore((state) => state.stands)
   const zones = useStandStore((state) => state.zones)
   const undoLast = useStandStore((state) => state.undoLast)
-  const clearAll = useStandStore((state) => state.clearAll)
   const presets = useStandStore((state) => state.presets)
   const rectPresetId = useStandStore((state) => state.rectPresetId)
   const setRectPreset = useStandStore((state) => state.setRectPreset)
-  const savePlano = useStandStore((state) => state.savePlano)
-  const isSaving = useStandStore((state) => state.isSaving)
-  const planoName = useStandStore((state) => state.planoName)
-  const setPlanoName = useStandStore((state) => state.setPlanoName)
-  const setBackgroundFile = useStandStore((state) => state.setBackgroundFile)
-  const backgroundUrl = useStandStore((state) => state.backgroundUrl)
   const color = useStandStore((state) => state.color)
   const setColor = useStandStore((state) => state.setColor)
-
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) {
-      onBackgroundChange(undefined)
-      setBackgroundFile(null)
-      return
-    }
-    setBackgroundFile(file)
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const result = e.target?.result
-      if (typeof result === 'string') {
-        onBackgroundChange(result)
-      }
-      event.target.value = ''
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleRemoveBackground = () => {
-    onBackgroundChange(undefined)
-    setBackgroundFile(null)
-  }
 
   const hasShapes = stands.length + zones.length > 0
   const currentTools = toolbarMode === 'stands' ? STAND_TOOLS : ZONE_TOOLS
@@ -170,82 +135,18 @@ const Toolbar = ({ onBackgroundChange }: ToolbarProps) => {
         </div>
       )}
 
-      {/* Plano Name */}
-      <div className="toolbar-section">
-        <h4 className="toolbar-section__title">Nombre del plano</h4>
-        <input
-          type="text"
-          className="toolbar-input"
-          value={planoName}
-          onChange={(e) => setPlanoName(e.target.value)}
-          placeholder="Ej: Sector A - Piso 1"
-        />
-      </div>
-
-      {/* Background Image */}
-      <div className="toolbar-section">
-        <h4 className="toolbar-section__title">Imagen de fondo</h4>
-        {backgroundUrl ? (
-          <div className="toolbar-image-preview">
-            <img src={backgroundUrl} alt="Fondo" className="toolbar-image-preview__img" />
-            <div className="toolbar-image-preview__actions">
-              <label className="toolbar-image-preview__change">
-                Cambiar
-                <input
-                  type="file"
-                  accept="image/*,.svg"
-                  onChange={handleFileUpload}
-                  style={{ display: 'none' }}
-                />
-              </label>
-              <button
-                className="toolbar-image-preview__remove"
-                onClick={handleRemoveBackground}
-              >
-                Quitar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <label className="toolbar-upload">
-            <input
-              type="file"
-              accept="image/*,.svg"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-            />
-            <div className="toolbar-upload__icon">+</div>
-            <span>Cargar imagen del plano</span>
-          </label>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="toolbar-actions">
-        <button
-          onClick={savePlano}
-          disabled={isSaving}
-          className="toolbar-btn toolbar-btn--primary"
-        >
-          {isSaving ? 'Guardando...' : 'Guardar plano'}
-        </button>
-        <div className="toolbar-actions__row">
+      {/* Undo button - pequeño y discreto */}
+      {hasShapes && (
+        <div className="toolbar-section toolbar-section--actions">
           <button
             onClick={undoLast}
-            disabled={!hasShapes}
-            className="toolbar-btn toolbar-btn--secondary"
+            className="toolbar-undo-btn"
+            title="Deshacer último elemento"
           >
-            Deshacer
-          </button>
-          <button
-            onClick={clearAll}
-            disabled={!hasShapes}
-            className="toolbar-btn toolbar-btn--danger"
-          >
-            Limpiar
+            ↩ Deshacer
           </button>
         </div>
-      </div>
+      )}
     </div>
   )
 }

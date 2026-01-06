@@ -6,6 +6,7 @@ import type { PlanoData, SpaceData, ZoneData } from '../services/api'
 import { useElementSize } from '../../hooks/useElementSize'
 import { useCanvasNavigation } from '../../hooks/useCanvasNavigation'
 import CanvasControls from '../../components/CanvasControls'
+import { toProxyUrl } from '../../utils/imageProxy'
 
 type PlanoMapProps = {
     plano: PlanoData
@@ -53,19 +54,16 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
             setBackgroundImage(null)
             return
         }
+        
+        // Convertir URL de S3 a URL del proxy para evitar CORS
+        const imageUrl = toProxyUrl(plano.url)
+        
         const img = new window.Image()
+        img.crossOrigin = 'anonymous'
         
-        // Handle SVG images
-        const isSvg = plano.url.includes('image/svg+xml') || 
-                      plano.url.includes('.svg') ||
-                      plano.url.startsWith('<svg')
-        
-        img.src = plano.url
+        img.src = imageUrl
         
         img.onload = () => {
-            if (isSvg && (img.width === 0 || img.height === 0)) {
-                console.warn('SVG has no intrinsic dimensions')
-            }
             setBackgroundImage(img)
         }
         img.onerror = (err) => {

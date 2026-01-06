@@ -1,6 +1,7 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import Konva from 'konva'
 import { Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text } from 'react-konva'
+import { toProxyUrl } from '../../utils/imageProxy'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type {
   DrawingMode,
@@ -12,6 +13,7 @@ import type {
   Zone,
 } from '../store/standStore'
 import { useStandStore } from '../store/standStore'
+import CanvasControls from '../../components/CanvasControls'
 
 type Subject = 'stand' | 'zone'
 type ToolAction = 'select' | 'paint' | 'rect' | 'polygon' | 'free'
@@ -56,6 +58,16 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
 
   // Container size tracking for auto-fit
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
+  
+  // Zoom state
+  const [scale, setScale] = useState(1)
+  const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [isSpacePressed, setIsSpacePressed] = useState(false)
+  
+  const MIN_SCALE = 0.1
+  const MAX_SCALE = 5
+  const SCALE_STEP = 0.15
 
   const modeMeta = useMemo(() => parseMode(mode), [mode])
 
@@ -83,17 +95,97 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     }
   }, [])
 
-  // Calculate scale to fit image in container
-  const scale = useMemo(() => {
+  // Calculate fit scale
+  const fitScale = useMemo(() => {
     if (!canvasWidth || !canvasHeight) return 1
     const scaleX = containerSize.width / canvasWidth
     const scaleY = containerSize.height / canvasHeight
-    return Math.min(scaleX, scaleY, 1) // Don't scale up beyond 100%
+    return Math.min(scaleX, scaleY, 1)
   }, [containerSize.width, containerSize.height, canvasWidth, canvasHeight])
 
+  // Auto-fit when canvas size changes
+  useEffect(() => {
+    if (canvasWidth && canvasHeight) {
+      setScale(fitScale)
+      // Center the canvas
+      const centeredX = (containerSize.width - canvasWidth * fitScale) / 2
+      const centeredY = (containerSize.height - canvasHeight * fitScale) / 2
+      setStagePosition({ x: Math.max(0, centeredX), y: Math.max(0, centeredY) })
+    }
+  }, [canvasWidth, canvasHeight, fitScale, containerSize])
+
+  // Zoom functions
+  const zoomIn = useCallback(() => {
+    setScale(prev => Math.min(MAX_SCALE, prev * (1 + SCALE_STEP)))
+  }, [])
+
+  const zoomOut = useCallback(() => {
+    setScale(prev => Math.max(MIN_SCALE, prev * (1 - SCALE_STEP)))
+  }, [])
+
+  const resetView = useCallback(() => {
+    setScale(1)
+    setStagePosition({ x: 0, y: 0 })
+  }, [])
+
+  const fitToScreen = useCallback(() => {
+    setScale(fitScale)
+    const centeredX = (containerSize.width - canvasWidth * fitScale) / 2
+    const centeredY = (containerSize.height - canvasHeight * fitScale) / 2
+    setStagePosition({ x: Math.max(0, centeredX), y: Math.max(0, centeredY) })
+  }, [fitScale, containerSize, canvasWidth, canvasHeight])
+
+  // Handle wheel zoom
+  const handleWheel = useCallback((e: KonvaEventObject<WheelEvent>) => {
+    e.evt.preventDefault()
+    const stage = stageRef.current
+    if (!stage) return
+
+    const pointer = stage.getPointerPosition()
+    if (!pointer) return
+
+    const oldScale = scale
+    const mousePointTo = {
+      x: (pointer.x - stagePosition.x) / oldScale,
+      y: (pointer.y - stagePosition.y) / oldScale,
+    }
+
+    const direction = e.evt.deltaY > 0 ? -1 : 1
+    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, oldScale * (1 + direction * SCALE_STEP)))
+
+    const newPos = {
+      x: pointer.x - mousePointTo.x * newScale,
+      y: pointer.y - mousePointTo.y * newScale,
+    }
+
+    setScale(newScale)
+    setStagePosition(newPos)
+  }, [scale, stagePosition])
+
+  // Space key for panning
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !isSpacePressed) {
+        setIsSpacePressed(true)
+      }
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false)
+        setIsPanning(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [isSpacePressed])
+
   // Display dimensions (scaled)
-  const displayWidth = canvasWidth * scale
-  const displayHeight = canvasHeight * scale
+  const displayWidth = containerSize.width
+  const displayHeight = containerSize.height
 
   useEffect(() => {
     if (!backgroundSrc) {
@@ -101,14 +193,12 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       return
     }
 
-    const loadImage = (useCors: boolean) => {
-      const image = new window.Image()
+    // Convertir URL de S3 a URL del proxy para evitar CORS
+    const imageUrl = toProxyUrl(backgroundSrc)
 
-      // Only set crossOrigin for non-data URLs if using CORS
-      const isDataUrl = backgroundSrc.startsWith('data:')
-      if (useCors && !isDataUrl) {
-        image.crossOrigin = 'anonymous'
-      }
+    const loadImage = () => {
+      const image = new window.Image()
+      image.crossOrigin = 'anonymous'
 
       image.onload = () => {
         const imgWidth = image.naturalWidth || image.width
@@ -123,22 +213,24 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       }
 
       image.onerror = () => {
-        if (useCors && !isDataUrl) {
-          // Retry without CORS
-          console.log('Retrying image load without CORS...')
-          loadImage(false)
-        } else {
-          console.error('Error loading background image')
-          setBackgroundImage(null)
-        }
+        console.error('Error loading background image:', imageUrl)
+        setBackgroundImage(null)
       }
 
-      image.src = backgroundSrc
+      image.src = imageUrl
     }
 
-    // Start with CORS enabled for external URLs
-    loadImage(true)
+    loadImage()
   }, [backgroundSrc, setCanvasSize])
+
+  const resetDrafts = () => {
+    setRectDraft(null)
+    setRectStart(null)
+    setPolygonPoints([])
+    setFreePoints([])
+    setIsFreeDrawing(false)
+    setDraftContext(null)
+  }
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -160,10 +252,10 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     const stage = stageRef.current
     const pointer = stage?.getPointerPosition()
     if (!pointer) return null
-    // Adjust for scale
+    // Adjust for scale and position
     return {
-      x: pointer.x / scale,
-      y: pointer.y / scale,
+      x: (pointer.x - stagePosition.x) / scale,
+      y: (pointer.y - stagePosition.y) / scale,
     }
   }
 
@@ -197,15 +289,6 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       addZone(shape as Zone)
     }
     resetDrafts()
-  }
-
-  const resetDrafts = () => {
-    setRectDraft(null)
-    setRectStart(null)
-    setPolygonPoints([])
-    setFreePoints([])
-    setIsFreeDrawing(false)
-    setDraftContext(null)
   }
 
   const handleStageMouseDown = (event: KonvaEventObject<MouseEvent>) => {
@@ -493,11 +576,44 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
         height={displayHeight}
         scaleX={scale}
         scaleY={scale}
+        x={stagePosition.x}
+        y={stagePosition.y}
         className="canvas-stage"
-        onMouseDown={handleStageMouseDown}
-        onMouseMove={handleStageMouseMove}
-        onMouseUp={handleStageMouseUp}
-        style={{ cursor: stageCursor }}
+        onWheel={handleWheel}
+        onMouseDown={(e) => {
+          if (isSpacePressed) {
+            setIsPanning(true)
+          } else {
+            handleStageMouseDown(e)
+          }
+        }}
+        onMouseMove={(e) => {
+          if (isPanning) {
+            const stage = stageRef.current
+            if (stage) {
+              const pos = stage.getPointerPosition()
+              if (pos) {
+                // Get movement delta
+                const dx = e.evt.movementX
+                const dy = e.evt.movementY
+                setStagePosition(prev => ({
+                  x: prev.x + dx,
+                  y: prev.y + dy,
+                }))
+              }
+            }
+          } else {
+            handleStageMouseMove()
+          }
+        }}
+        onMouseUp={() => {
+          if (isPanning) {
+            setIsPanning(false)
+          } else {
+            handleStageMouseUp()
+          }
+        }}
+        style={{ cursor: isSpacePressed ? (isPanning ? 'grabbing' : 'grab') : stageCursor }}
       >
         <Layer listening={false}>
           {backgroundImage ? (
@@ -562,6 +678,17 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
           )}
         </Layer>
       </Stage>
+      
+      <CanvasControls
+        scale={scale}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onReset={resetView}
+        onFitToScreen={fitToScreen}
+        minScale={MIN_SCALE}
+        maxScale={MAX_SCALE}
+        showPanHint={true}
+      />
     </div>
   )
 }

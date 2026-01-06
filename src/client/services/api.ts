@@ -1,4 +1,9 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5001';
+/**
+ * Servicios API para la aplicación cliente.
+ * Las peticiones de lectura son públicas, las de escritura requieren autenticación.
+ */
+
+import { api } from '../../auth/apiClient';
 
 export interface PlanoData {
     id: string;
@@ -54,71 +59,38 @@ export interface EventoData {
     planos?: PlanoData[];
 }
 
+// ==================== PLANOS API (Públicos) ====================
+
 export async function fetchPlanos(): Promise<PlanoData[]> {
-    const response = await fetch(`${API_BASE}/planos/`);
-    if (!response.ok) {
-        throw new Error('Error al obtener planos');
-    }
-    return response.json();
+    return api.get<PlanoData[]>('/planos/', { skipAuth: true });
 }
 
 export async function fetchPlano(id: string): Promise<PlanoData> {
-    const response = await fetch(`${API_BASE}/planos/${id}`);
-    if (!response.ok) {
-        throw new Error('Error al obtener plano');
-    }
-    return response.json();
+    return api.get<PlanoData>(`/planos/${id}`, { skipAuth: true });
 }
+
+// ==================== EVENTOS API (Públicos) ====================
 
 export async function fetchEventos(): Promise<EventoData[]> {
-    const response = await fetch(`${API_BASE}/eventos/`);
-    if (!response.ok) {
-        throw new Error('Error al obtener eventos');
-    }
-    return response.json();
+    return api.get<EventoData[]>('/eventos/', { skipAuth: true });
 }
 
-export async function createReservation(spaceId: string, userId?: string): Promise<ReservationData> {
-    const response = await fetch(`${API_BASE}/spaces/${spaceId}/reservar`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId }),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al reservar');
-    }
-    return response.json();
+// ==================== RESERVACIONES API (Requieren Auth) ====================
+
+export async function createReservation(spaceId: string, asignee?: string): Promise<ReservationData> {
+    return api.post<ReservationData>(`/spaces/${spaceId}/reservar`, { asignee });
 }
 
 export async function cancelReservation(spaceId: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/spaces/${spaceId}/reserva`, {
-        method: 'DELETE',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al cancelar reserva');
-    }
+    await api.delete(`/spaces/${spaceId}/reserva`);
 }
 
+// ==================== BLOQUEO DE ESPACIOS (Requieren Auth + Admin) ====================
+
 export async function blockSpace(spaceId: string): Promise<SpaceData> {
-    const response = await fetch(`${API_BASE}/spaces/${spaceId}/bloquear`, {
-        method: 'PATCH',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al bloquear');
-    }
-    return response.json();
+    return api.patch<SpaceData>(`/spaces/${spaceId}/bloquear`);
 }
 
 export async function unblockSpace(spaceId: string): Promise<SpaceData> {
-    const response = await fetch(`${API_BASE}/spaces/${spaceId}/desbloquear`, {
-        method: 'PATCH',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al desbloquear');
-    }
-    return response.json();
+    return api.patch<SpaceData>(`/spaces/${spaceId}/desbloquear`);
 }

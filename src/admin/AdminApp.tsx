@@ -11,11 +11,6 @@ import './admin.css'
 const AdminApp = () => {
     const { user, logout } = useAuth()
     const backgroundUrl = useStandStore((state) => state.backgroundUrl)
-    const setBackgroundUrl = useStandStore((state) => state.setBackgroundUrl)
-
-    const handleBackgroundChange = (src?: string) => {
-        setBackgroundUrl(src || '')
-    }
 
     return (
         <div className="admin-layout">
@@ -25,7 +20,7 @@ const AdminApp = () => {
                     <span className="admin-header__logo">🗺️</span>
                     <div>
                         <h1 className="admin-header__title">Admin - Reserva Espacios</h1>
-                        <p className="admin-header__subtitle">Editor de planos interactivo</p>
+                        <p className="admin-header__subtitle">Editor de áreas interactivo</p>
                     </div>
                 </div>
                 <div className="admin-header__user">
@@ -42,7 +37,7 @@ const AdminApp = () => {
             <div className="admin-content">
                 {/* Left Sidebar - Toolbar */}
                 <aside className="admin-sidebar">
-                    <Toolbar onBackgroundChange={handleBackgroundChange} />
+                    <Toolbar />
                 </aside>
 
                 {/* Center - Workspace */}

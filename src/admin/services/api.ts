@@ -1,4 +1,9 @@
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:5001';
+/**
+ * Servicios API para el panel de administración.
+ * Todas las peticiones incluyen automáticamente el token de autenticación.
+ */
+
+import { api } from '../../auth/apiClient';
 
 export interface PlanoData {
     id?: string;
@@ -42,86 +47,39 @@ export interface ZoneData {
     price?: number;
 }
 
+// ==================== PLANOS API ====================
+
 export async function fetchPlanos(): Promise<PlanoData[]> {
-    const response = await fetch(`${API_BASE}/planos/`);
-    if (!response.ok) {
-        throw new Error('Error al obtener planos');
-    }
-    return response.json();
+    return api.get<PlanoData[]>('/planos/', { skipAuth: true });
 }
 
 export async function fetchPlanosByEvento(eventoId: string): Promise<PlanoData[]> {
-    const response = await fetch(`${API_BASE}/planos/por-evento/${eventoId}`);
-    if (!response.ok) {
-        throw new Error('Error al obtener planos del evento');
-    }
-    return response.json();
+    return api.get<PlanoData[]>(`/planos/por-evento/${eventoId}`, { skipAuth: true });
 }
 
 export async function fetchPlano(id: string): Promise<PlanoData> {
-    const response = await fetch(`${API_BASE}/planos/${id}`);
-    if (!response.ok) {
-        throw new Error('Error al obtener plano');
-    }
-    return response.json();
+    return api.get<PlanoData>(`/planos/${id}`, { skipAuth: true });
 }
 
 export async function createPlano(data: PlanoData): Promise<PlanoData> {
-    const response = await fetch(`${API_BASE}/planos/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al crear plano');
-    }
-    return response.json();
+    return api.post<PlanoData>('/planos/', data);
 }
 
 export async function updatePlano(id: string, data: PlanoData): Promise<PlanoData> {
-    const response = await fetch(`${API_BASE}/planos/${id}`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al actualizar plano');
-    }
-    return response.json();
+    return api.put<PlanoData>(`/planos/${id}`, data);
 }
 
 export async function deletePlano(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/planos/${id}`, {
-        method: 'DELETE',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al eliminar plano');
-    }
+    await api.delete(`/planos/${id}`);
 }
 
 export async function uploadPlanoImage(file: File): Promise<{ url: string }> {
     const formData = new FormData();
     formData.append('file', file);
-
-    const response = await fetch(`${API_BASE}/planos/upload-image`, {
-        method: 'POST',
-        body: formData,
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al subir imagen');
-    }
-    return response.json();
+    return api.upload<{ url: string }>('/planos/upload-image', formData);
 }
 
-// ... (interfaces existing)
+// ==================== EVENTOS API ====================
 
 export interface EventoData {
     id: string;
@@ -130,39 +88,16 @@ export interface EventoData {
     fecha_reserva_hasta: string;
 }
 
-// ... (existing functions)
-
 export async function fetchEventos(): Promise<EventoData[]> {
-    const response = await fetch(`${API_BASE}/eventos/`);
-    if (!response.ok) {
-        throw new Error('Error al obtener eventos');
-    }
-    return response.json();
+    return api.get<EventoData[]>('/eventos/', { skipAuth: true });
 }
 
 export async function createEvento(data: Omit<EventoData, 'id'>): Promise<EventoData> {
-    const response = await fetch(`${API_BASE}/eventos/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al crear evento');
-    }
-    return response.json();
+    return api.post<EventoData>('/eventos/', data);
 }
 
 export async function deleteEvento(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/eventos/${id}`, {
-        method: 'DELETE',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al eliminar evento');
-    }
+    await api.delete(`/eventos/${id}`);
 }
 
 // ==================== RESERVAS API ====================
@@ -186,44 +121,30 @@ export interface ReservationStatus {
     reservation: ReservationData | null;
 }
 
+interface PendingReservationsResponse {
+    reservations: ReservationData[];
+}
+
+interface ReservationResponse {
+    reservation: ReservationData;
+}
+
 export async function fetchPendingReservations(): Promise<ReservationData[]> {
-    const response = await fetch(`${API_BASE}/api/reservas/pending`);
-    if (!response.ok) {
-        throw new Error('Error al obtener reservas pendientes');
-    }
-    const data = await response.json();
+    const data = await api.get<PendingReservationsResponse>('/api/reservas/pending');
     return data.reservations;
 }
 
 export async function fetchReservationStatus(id: string): Promise<ReservationStatus> {
-    const response = await fetch(`${API_BASE}/api/reservas/${id}/status`);
-    if (!response.ok) {
-        throw new Error('Error al obtener estado de reserva');
-    }
-    return response.json();
+    return api.get<ReservationStatus>(`/api/reservas/${id}/status`);
 }
 
 export async function confirmReservation(id: string): Promise<ReservationData> {
-    const response = await fetch(`${API_BASE}/api/reservas/${id}/confirm`, {
-        method: 'POST',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al confirmar reserva');
-    }
-    const data = await response.json();
+    const data = await api.post<ReservationResponse>(`/api/reservas/${id}/confirm`);
     return data.reservation;
 }
 
 export async function rejectReservation(id: string): Promise<ReservationData> {
-    const response = await fetch(`${API_BASE}/api/reservas/${id}/reject`, {
-        method: 'POST',
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al rechazar reserva');
-    }
-    const data = await response.json();
+    const data = await api.post<ReservationResponse>(`/api/reservas/${id}/reject`);
     return data.reservation;
 }
 
@@ -237,16 +158,29 @@ export interface SpaceUpdateData {
 }
 
 export async function updateSpace(id: string, data: SpaceUpdateData): Promise<SpaceData> {
-    const response = await fetch(`${API_BASE}/spaces/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al actualizar stand');
-    }
-    return response.json();
+    return api.patch<SpaceData>(`/spaces/${id}`, data);
+}
+
+export async function deleteSpace(id: string): Promise<void> {
+    await api.delete(`/spaces/${id}`);
+}
+
+export interface SpaceCreateData {
+    plano_id: string;
+    kind: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+    name: string;
+    price?: number | null;
+    zone_id?: string;
+    points?: number[];
+}
+
+export async function createSpace(data: SpaceCreateData): Promise<SpaceData> {
+    return api.post<SpaceData>('/spaces/', data);
 }
 
 // ==================== ZONES API ====================
@@ -259,16 +193,28 @@ export interface ZoneUpdateData {
 }
 
 export async function updateZone(id: string, data: ZoneUpdateData): Promise<ZoneData> {
-    const response = await fetch(`${API_BASE}/zones/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al actualizar zona');
-    }
-    return response.json();
+    return api.patch<ZoneData>(`/zones/${id}`, data);
+}
+
+export async function deleteZone(id: string): Promise<void> {
+    await api.delete(`/zones/${id}`);
+}
+
+export interface ZoneCreateData {
+    plano_id: string;
+    kind: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    color: string;
+    name: string;
+    price?: number | null;
+    points?: number[];
+}
+
+export async function createZone(data: ZoneCreateData): Promise<ZoneData> {
+    return api.post<ZoneData>('/zones/', data);
 }
 
 // ==================== SPACES WITH RESERVATIONS ====================
@@ -295,9 +241,5 @@ export interface SpaceWithReservation {
 }
 
 export async function fetchSpaces(): Promise<SpaceWithReservation[]> {
-    const response = await fetch(`${API_BASE}/spaces/`);
-    if (!response.ok) {
-        throw new Error('Error al obtener espacios');
-    }
-    return response.json();
+    return api.get<SpaceWithReservation[]>('/spaces/', { skipAuth: true });
 }

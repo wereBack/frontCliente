@@ -94,6 +94,8 @@ type StandStore = {
   selectStand: (id: string | null) => void
   removeStand: (id: string) => void
   removeZone: (id: string) => void
+  replaceStandId: (oldId: string, newId: string) => void
+  replaceZoneId: (oldId: string, newId: string) => void
   clearAll: () => void
   undoLast: () => void
   setRectPreset: (id: string | null) => void
@@ -351,6 +353,25 @@ export const useStandStore = create<StandStore>((set, get) => ({
   removeZone: (id) =>
     set((state) => ({
       zones: state.zones.filter((zone) => zone.id !== id),
+    })),
+  replaceStandId: (oldId, newId) =>
+    set((state) => ({
+      stands: state.stands.map((stand) =>
+        stand.id === oldId ? { ...stand, id: newId } : stand
+      ),
+      selectedStandId: state.selectedStandId === oldId ? newId : state.selectedStandId,
+      history: state.history.map((h) =>
+        h.type === 'stand' && h.id === oldId ? { ...h, id: newId } : h
+      ),
+    })),
+  replaceZoneId: (oldId, newId) =>
+    set((state) => ({
+      zones: state.zones.map((zone) =>
+        zone.id === oldId ? { ...zone, id: newId } : zone
+      ),
+      history: state.history.map((h) =>
+        h.type === 'zone' && h.id === oldId ? { ...h, id: newId } : h
+      ),
     })),
   clearAll: () => set({
     stands: [],

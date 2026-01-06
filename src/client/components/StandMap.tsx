@@ -5,6 +5,7 @@ import type { FloorMeta, FloorStand } from '../../types/stands'
 import type { StandStatus } from '../../types/stands'
 import { STATUS_META } from '../constants'
 import { useElementSize } from '../../hooks/useElementSize'
+import { toProxyUrl } from '../../utils/imageProxy'
 
 type StandMapProps = {
   floor: FloorMeta
@@ -31,8 +32,12 @@ const StandMap = ({ floor, statuses, selectedStandId, onSelect }: StandMapProps)
   }, [size.width, aspectRatio, floor.dimensions.height, floor.dimensions.width])
 
   useEffect(() => {
+    // Convertir URL de S3 a URL del proxy para evitar CORS
+    const imageUrl = toProxyUrl(floor.image)
+    
     const img = new window.Image()
-    img.src = floor.image
+    img.crossOrigin = 'anonymous'
+    img.src = imageUrl
     img.onload = () => setBackgroundImage(img)
     img.onerror = () => setBackgroundImage(null)
     return () => {
