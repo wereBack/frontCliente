@@ -6,50 +6,13 @@ import { createReservation } from './services/api'
 import PlanoMap from './components/PlanoMap'
 import Legend from './components/Legend'
 import EventSelector from './components/EventSelector'
+import {
+    getSpaceStatus,
+    getEffectivePrice,
+    STATUS_LABELS,
+    STATUS_DESCRIPTIONS,
+} from './utils/spaceStatus'
 import './client.css'
-
-// Helper to get stand status
-const getSpaceStatus = (space: { active: boolean; reservations?: { estado: string }[] }): 'disponible' | 'pendiente' | 'reservado' | 'bloqueado' => {
-    if (!space.active) return 'bloqueado'
-    if (space.reservations && space.reservations.length > 0) {
-        const activeReservation = space.reservations.find(r => r.estado === 'RESERVED' || r.estado === 'PENDING')
-        if (activeReservation?.estado === 'PENDING') return 'pendiente'
-        if (activeReservation?.estado === 'RESERVED') return 'reservado'
-    }
-    return 'disponible'
-}
-
-const STATUS_LABELS: Record<string, string> = {
-    disponible: 'Disponible',
-    pendiente: 'Pendiente',
-    reservado: 'Reservado',
-    bloqueado: 'Bloqueado',
-}
-
-const STATUS_DESCRIPTIONS: Record<string, string> = {
-    disponible: 'Stand disponible para reserva.',
-    pendiente: 'Reserva pendiente de confirmación.',
-    reservado: 'Este stand ya fue reservado.',
-    bloqueado: 'Stand no disponible.',
-}
-
-// Helper to get effective price (from stand or its zone)
-import type { SpaceData, ZoneData } from './services/api'
-
-const getEffectivePrice = (space: SpaceData, zones: ZoneData[]): number | null => {
-    // First check if space has its own price
-    if (space.price != null && Number(space.price) > 0) {
-        return Number(space.price)
-    }
-    // Otherwise, look for zone price
-    if (space.zone_id) {
-        const zone = zones.find(z => z.id === space.zone_id)
-        if (zone?.price != null && Number(zone.price) > 0) {
-            return Number(zone.price)
-        }
-    }
-    return null
-}
 
 const ClientApp = () => {
     const { isAuthenticated, user, login, logout } = useAuth()
