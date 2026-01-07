@@ -121,12 +121,18 @@ const ClientApp = () => {
 
     return (
         <div className="client-app">
-            {/* Top bar */}
+            {/* Top Header - Solo logo y sesión */}
             <header className="client-topbar">
-                <EventSelector
-                    selectedEventoId={selectedEventoId}
-                    onSelectEvento={handleEventChange}
-                />
+                <div className="client-topbar__brand">
+                    <img
+                        src="/src/assets/LogoUniversidadMontevideo.png"
+                        alt="Universidad de Montevideo"
+                        className="client-topbar__logo"
+                    />
+                    <div className="client-topbar__titles">
+                        <h1 className="client-topbar__title">Reserva de Espacios</h1>
+                    </div>
+                </div>
                 <div className="session-actions">
                     {isAuthenticated ? (
                         <>
@@ -143,23 +149,29 @@ const ClientApp = () => {
                 </div>
             </header>
 
-            {/* Plano selector tabs */}
-            {filteredPlanos.length > 1 && (
-                <div className="floor-tabs">
-                    {filteredPlanos.map((plano, index) => (
-                        <button
-                            key={plano.id}
-                            className={`floor-tab ${selectedPlanoIndex === index ? 'floor-tab--active' : ''}`}
-                            onClick={() => {
-                                setSelectedPlanoIndex(index)
-                                setSelectedSpaceId(null)
-                            }}
-                        >
-                            {plano.name}
-                        </button>
-                    ))}
-                </div>
-            )}
+            {/* Workspace Header - Event selector y Plano tabs */}
+            <div className="client-workspace-header">
+                <EventSelector
+                    selectedEventoId={selectedEventoId}
+                    onSelectEvento={handleEventChange}
+                />
+                {filteredPlanos.length > 0 && (
+                    <div className="plano-chips">
+                        {filteredPlanos.map((plano, index) => (
+                            <button
+                                key={plano.id}
+                                className={`plano-chip ${selectedPlanoIndex === index ? 'plano-chip--active' : ''}`}
+                                onClick={() => {
+                                    setSelectedPlanoIndex(index)
+                                    setSelectedSpaceId(null)
+                                }}
+                            >
+                                <span className="plano-chip__name">{plano.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             <main className="client-main">
                 {isLoading && (

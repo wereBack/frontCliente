@@ -17,8 +17,12 @@ const AdminApp = () => {
             {/* Top Header */}
             <header className="admin-header">
                 <div className="admin-header__brand">
-                    <span className="admin-header__logo">🗺️</span>
-                    <div>
+                    <img
+                        src="/src/assets/LogoUniversidadMontevideo.png"
+                        alt="Universidad de Montevideo"
+                        className="admin-header__logo"
+                    />
+                    <div className="admin-header__titles">
                         <h1 className="admin-header__title">Admin - Reserva Espacios</h1>
                         <p className="admin-header__subtitle">Editor de áreas interactivo</p>
                     </div>

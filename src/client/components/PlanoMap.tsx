@@ -54,15 +54,15 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
             setBackgroundImage(null)
             return
         }
-        
+
         // Convertir URL de S3 a URL del proxy para evitar CORS
         const imageUrl = toProxyUrl(plano.url)
-        
+
         const img = new window.Image()
         img.crossOrigin = 'anonymous'
-        
+
         img.src = imageUrl
-        
+
         img.onload = () => {
             setBackgroundImage(img)
         }
@@ -70,7 +70,7 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
             console.error('Error loading background image:', err)
             setBackgroundImage(null)
         }
-        
+
         return () => {
             setBackgroundImage(null)
         }
@@ -102,7 +102,15 @@ const PlanoMap = ({ plano, selectedSpaceId, onSelectSpace }: PlanoMapProps) => {
         <div ref={containerRef} className="stand-map__shell">
             <div
                 className="stand-map__stage-wrapper"
-                style={{ width: '100%', height: stageDimensions.height, position: 'relative', overflow: 'hidden' }}
+                style={{
+                    width: '100%',
+                    height: stageDimensions.height,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                }}
             >
                 <Stage
                     ref={stageRef}
