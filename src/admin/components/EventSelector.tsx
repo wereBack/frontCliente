@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, type KeyboardEvent } from 'react';
 import { fetchEventos, createEvento, fetchPlanosByEvento, deletePlano, deleteEvento, type EventoData, type PlanoData } from '../services/api';
 import { useStandStore } from '../store/standStore';
 
@@ -6,7 +6,7 @@ const EventSelector = () => {
     const { 
         eventoId, setEventoId, loadPlano, clearAll, planoId, 
         newlyCreatedPlanoId, clearNewlyCreatedPlanoId,
-        planoName, setPlanoName, setBackgroundFile, backgroundUrl, setBackgroundUrl,
+        planoName, setPlanoName,
         savePlano, isSaving
     } = useStandStore();
     
@@ -115,8 +115,8 @@ const EventSelector = () => {
         if (eventoId) {
             setEventoId(eventoId);
         }
-        setIsCreatingNewArea(true);
-        setHasUnsavedNewArea(false);
+        setIsCreatingNewArea(false);
+        setHasUnsavedNewArea(true); // Mostrar directamente el chip con botones
         setNewAreaName('Nueva Área');
         setPlanoName('Nueva Área');
     };
@@ -139,14 +139,17 @@ const EventSelector = () => {
     };
 
     const handleNewAreaBlur = () => {
-        if (newAreaName.trim()) {
-            setPlanoName(newAreaName);
-            setIsCreatingNewArea(false);
-            setHasUnsavedNewArea(true); // Área confirmada pero sin guardar
-        } else {
-            setIsCreatingNewArea(false);
-            setHasUnsavedNewArea(false);
-        }
+        // Pequeño delay para permitir que clicks en otros elementos se procesen primero
+        setTimeout(() => {
+            if (newAreaName.trim()) {
+                setPlanoName(newAreaName);
+                setIsCreatingNewArea(false);
+                setHasUnsavedNewArea(true); // Área confirmada pero sin guardar
+            } else {
+                setIsCreatingNewArea(false);
+                setHasUnsavedNewArea(false);
+            }
+        }, 150);
     };
 
     const handleDeletePlano = async (planoIdToDelete: string) => {
@@ -195,27 +198,7 @@ const EventSelector = () => {
         }
     };
 
-    const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) {
-            setBackgroundUrl('');
-            setBackgroundFile(null);
-            return;
-        }
-        setBackgroundFile(file);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const result = e.target?.result;
-            if (typeof result === 'string') {
-                setBackgroundUrl(result);
-            }
-            event.target.value = '';
-        };
-        reader.readAsDataURL(file);
-    };
-
     const selectedEvento = eventos.find(e => e.id === eventoId);
-    const isEditingArea = planoId || isCreatingNewArea || hasUnsavedNewArea;
 
     return (
         <div className="header-selector">
@@ -323,11 +306,31 @@ const EventSelector = () => {
                                             </div>
                                         ) : hasUnsavedNewArea ? (
                                             // Área nueva confirmada pero sin guardar
-                                            <div className="area-chip area-chip--active area-chip--unsaved">
-                                                <span className="area-chip__name area-chip__name--static">
-                                                    {planoName}
-                                                </span>
-                                                <span className="area-chip__badge">nuevo</span>
+                                            <div className="area-chip-group">
+                                                <div className="area-chip area-chip--active area-chip--unsaved">
+                                                    <span className="area-chip__name area-chip__name--static">
+                                                        {planoName}
+                                                    </span>
+                                                    <span className="area-chip__badge">nuevo</span>
+                                                    <button
+                                                        className="area-chip__edit"
+                                                        onClick={() => {
+                                                            setIsCreatingNewArea(true);
+                                                            setNewAreaName(planoName);
+                                                        }}
+                                                        title="Editar nombre"
+                                                    >
+                                                        ✎
+                                                    </button>
+                                                </div>
+                                                <button
+                                                    onClick={savePlano}
+                                                    disabled={isSaving}
+                                                    className="area-chip__save-btn"
+                                                    title="Guardar nueva área"
+                                                >
+                                                    {isSaving ? '...' : '✓'}
+                                                </button>
                                             </div>
                                         ) : (
                                             // Botón para crear nueva área
@@ -345,47 +348,7 @@ const EventSelector = () => {
                     </>
                 )}
 
-                {/* Imagen de fondo */}
-                {isEditingArea && !isCreating && (
-                    <>
-                        <div className="header-selector__divider" />
-                        <div className="header-selector__group header-selector__group--image">
-                            {backgroundUrl ? (
-                                <label className="header-selector__image-btn header-selector__image-btn--has-image" title="Cambiar imagen">
-                                    <img src={backgroundUrl} alt="" />
-                                    <input
-                                        type="file"
-                                        accept="image/*,.svg"
-                                        onChange={handleFileUpload}
-                                        style={{ display: 'none' }}
-                                    />
-                                </label>
-                            ) : (
-                                <label className="header-selector__image-btn" title="Cargar imagen de fondo">
-                                    <span className="header-selector__image-icon">+</span>
-                                    <span className="header-selector__image-text">Imagen</span>
-                                    <input
-                                        type="file"
-                                        accept="image/*,.svg"
-                                        onChange={handleFileUpload}
-                                        style={{ display: 'none' }}
-                                    />
-                                </label>
-                            )}
-                        </div>
-                    </>
-                )}
 
-                {/* Guardar */}
-                {isEditingArea && !isCreating && (
-                    <button
-                        onClick={savePlano}
-                        disabled={isSaving}
-                        className="header-selector__save"
-                    >
-                        {isSaving ? '...' : '💾'}
-                    </button>
-                )}
             </div>
 
             {/* Info del evento */}

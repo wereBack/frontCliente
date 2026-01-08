@@ -85,6 +85,32 @@ export async function cancelReservation(spaceId: string): Promise<void> {
     await api.delete(`/spaces/${spaceId}/reserva`);
 }
 
+// ==================== MIS RESERVAS ====================
+
+export interface MyReservationData {
+    id: string;
+    estado: string;
+    asignee?: string;
+    user_id?: string;
+    space_id: string;
+    space_name?: string;
+    expires_at?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export async function fetchMyReservations(): Promise<MyReservationData[]> {
+    const response = await api.get<{ status: string; reservations: MyReservationData[] }>('/api/reservas/mis-reservas');
+    return response.reservations;
+}
+
+export async function requestCancellation(reservationId: string): Promise<MyReservationData> {
+    const response = await api.post<{ status: string; message: string; reservation: MyReservationData }>(
+        `/api/reservas/${reservationId}/solicitar-cancelacion`
+    );
+    return response.reservation;
+}
+
 // ==================== BLOQUEO DE ESPACIOS (Requieren Auth + Admin) ====================
 
 export async function blockSpace(spaceId: string): Promise<SpaceData> {

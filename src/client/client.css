@@ -605,7 +605,7 @@ body {
 /* Stand List */
 .stand-list {
   list-style: none;
-  padding: 0;
+  padding: 4px 4px 8px 4px;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -623,19 +623,21 @@ body {
   background: var(--um-bg);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, box-shadow 0.15s;
-  border: 1.5px solid transparent;
+  transition: all 0.15s ease;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
 }
 
 .stand-list-item:hover {
   background: #e8eaed;
-  border-color: var(--um-blue);
+  outline-color: var(--um-blue);
+  box-shadow: 0 2px 8px rgba(0, 60, 162, 0.1);
 }
 
 .stand-list-item--active {
   background: var(--um-white);
-  border-color: var(--um-blue);
-  box-shadow: 0 2px 8px rgba(0, 60, 162, 0.15);
+  outline-color: var(--um-blue);
+  box-shadow: 0 2px 8px rgba(0, 60, 162, 0.2);
 }
 
 .stand-list-item__info {
@@ -702,6 +704,270 @@ body {
   font-size: 14px;
 }
 
+/* ===== MY RESERVATIONS CARD ===== */
+.my-reservations-card {
+  background: var(--um-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--um-border);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.my-reservations-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--um-blue) 0%, var(--um-blue-dark) 100%);
+  border-bottom: 1px solid var(--um-border);
+}
+
+.my-reservations-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reservation-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.my-reservations-content {
+  padding: 16px;
+}
+
+.my-reservations-loading,
+.my-reservations-error {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--um-text-muted);
+}
+
+.my-reservations-error {
+  color: var(--color-danger);
+}
+
+.my-reservations-error button {
+  margin-top: 12px;
+}
+
+.my-reservations-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.my-reservations-empty .empty-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.my-reservations-empty p {
+  margin: 0 0 4px;
+  font-weight: 600;
+  color: var(--um-text);
+}
+
+.my-reservations-empty span {
+  font-size: 13px;
+  color: var(--um-text-muted);
+}
+
+.reservations-section {
+  margin-bottom: 16px;
+}
+
+.reservations-section:last-child {
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--um-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 10px 4px;
+}
+
+.section-title--muted {
+  color: var(--um-text-muted);
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--um-border);
+}
+
+.my-reservations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.my-reservation-item {
+  background: var(--um-bg);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  border-left: 4px solid var(--um-border);
+  transition: box-shadow 0.15s;
+}
+
+.my-reservation-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.my-reservation-item--pending {
+  border-left-color: var(--color-warning);
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.my-reservation-item--reserved {
+  border-left-color: var(--color-success);
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+}
+
+.my-reservation-item--cancellation-requested {
+  border-left-color: #f97316;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+}
+
+.my-reservation-item--cancelled {
+  border-left-color: var(--color-muted);
+  opacity: 0.7;
+}
+
+.my-reservation-item--expired {
+  border-left-color: var(--color-muted);
+  opacity: 0.7;
+}
+
+.my-reservation-item--history {
+  padding: 10px 14px;
+}
+
+.reservation-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.reservation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reservation-space {
+  font-weight: 600;
+  color: var(--um-text);
+  font-size: 14px;
+}
+
+.reservation-date {
+  font-size: 12px;
+  color: var(--um-text-muted);
+}
+
+.reservation-status-wrapper {
+  flex-shrink: 0;
+}
+
+.reservation-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.reservation-status--small {
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.reservation-status.my-reservation--pending {
+  background: var(--color-warning-bg);
+  color: #b45309;
+}
+
+.reservation-status.my-reservation--reserved {
+  background: var(--color-success-bg);
+  color: #047857;
+}
+
+.reservation-status.my-reservation--cancellation-requested {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.reservation-status.my-reservation--cancelled,
+.reservation-status.my-reservation--expired {
+  background: var(--color-muted-bg);
+  color: var(--color-muted);
+}
+
+.reservation-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.reservation-description {
+  font-size: 12px;
+  color: var(--um-text-secondary);
+}
+
+.cancel-btn {
+  background: transparent;
+  border: 1.5px solid var(--color-danger);
+  color: var(--color-danger);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: var(--color-danger);
+  color: white;
+}
+
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.my-reservations-list--history .my-reservation-item {
+  background: var(--um-bg);
+  border-left-width: 3px;
+}
+
 /* ===== LOADING / ERROR / EMPTY STATES ===== */
 .loading-message,
 .error-message,
@@ -721,6 +987,93 @@ body {
 
 .error-message button {
   margin-top: 16px;
+}
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background: var(--um-white);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow: hidden;
+  position: relative;
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content--reservations {
+  width: 500px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  z-index: 10;
+}
+
+.modal-close:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Ajustar MyReservations cuando está en modal */
+.modal-content--reservations .my-reservations-card {
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.modal-content--reservations .my-reservations-header {
+  padding-right: 48px;
+}
+
+.modal-content--reservations .my-reservations-content {
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 /* ===== RESPONSIVE ===== */
@@ -746,5 +1099,15 @@ body {
 
   .filter-select {
     width: 100%;
+  }
+
+  .modal-content--reservations {
+    width: 95vw;
+    max-height: 90vh;
+  }
+
+  .session-actions {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }

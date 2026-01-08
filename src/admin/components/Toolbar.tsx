@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useStandStore } from '../store/standStore'
 
 type ToolbarMode = 'stands' | 'zones'
@@ -18,6 +18,7 @@ const ZONE_TOOLS = [
 
 const Toolbar = () => {
   const [toolbarMode, setToolbarMode] = useState<ToolbarMode>('stands')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const mode = useStandStore((state) => state.mode)
   const setMode = useStandStore((state) => state.setMode)
@@ -29,9 +30,25 @@ const Toolbar = () => {
   const setRectPreset = useStandStore((state) => state.setRectPreset)
   const color = useStandStore((state) => state.color)
   const setColor = useStandStore((state) => state.setColor)
+  const backgroundUrl = useStandStore((state) => state.backgroundUrl)
+  const setBackgroundUrl = useStandStore((state) => state.setBackgroundUrl)
+  const setBackgroundFile = useStandStore((state) => state.setBackgroundFile)
+  const planoId = useStandStore((state) => state.planoId)
+  const planoName = useStandStore((state) => state.planoName)
 
   const hasShapes = stands.length + zones.length > 0
   const currentTools = toolbarMode === 'stands' ? STAND_TOOLS : ZONE_TOOLS
+  const isEditingArea = planoId || planoName
+
+  // Handle image upload
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setBackgroundFile(file)
+      const url = URL.createObjectURL(file)
+      setBackgroundUrl(url)
+    }
+  }
 
   // Switch to select mode when changing toolbar mode
   const handleModeSwitch = (newMode: ToolbarMode) => {
@@ -131,6 +148,40 @@ const Toolbar = () => {
               className="toolbar-color__picker"
             />
             <span className="toolbar-color__label">{color}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Background Image Section */}
+      {isEditingArea && (
+        <div className="toolbar-section">
+          <h4 className="toolbar-section__title">Imagen de fondo</h4>
+          <div className="toolbar-background">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageChange}
+              accept="image/*"
+              style={{ display: 'none' }}
+            />
+            {backgroundUrl ? (
+              <div className="toolbar-background__preview">
+                <img src={backgroundUrl} alt="Fondo" />
+                <button
+                  className="toolbar-background__change"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <button
+                className="toolbar-background__add"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                + Seleccionar imagen
+              </button>
+            )}
           </div>
         </div>
       )}

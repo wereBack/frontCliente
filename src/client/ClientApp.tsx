@@ -6,6 +6,7 @@ import { createReservation } from './services/api'
 import PlanoMap from './components/PlanoMap'
 import Legend from './components/Legend'
 import EventSelector from './components/EventSelector'
+import MyReservations from './components/MyReservations'
 import {
     getSpaceStatus,
     getEffectivePrice,
@@ -22,6 +23,8 @@ const ClientApp = () => {
     const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('todos')
+    const [myReservationsKey, setMyReservationsKey] = useState(0)
+    const [showMyReservations, setShowMyReservations] = useState(false)
 
     // WebSocket para actualización en tiempo real
     const handleSocketChange = useCallback(() => {
@@ -69,6 +72,7 @@ const ClientApp = () => {
         try {
             await createReservation(selectedSpaceId, user.username)
             await refetch()
+            setMyReservationsKey(prev => prev + 1) // Refresh my reservations
             alert('¡Solicitud enviada! Tu reserva está pendiente de confirmación por el administrador.')
         } catch (error) {
             alert(error instanceof Error ? error.message : 'Error al reservar')
@@ -76,6 +80,11 @@ const ClientApp = () => {
             setIsReserving(false)
         }
     }
+
+    // Handle refresh from MyReservations component
+    const handleMyReservationsRefresh = useCallback(() => {
+        refetch()
+    }, [refetch])
 
     const formatPrice = (price: number | undefined) => {
         if (price == null) return null
@@ -100,6 +109,13 @@ const ClientApp = () => {
                     {isAuthenticated ? (
                         <>
                             <span className="user-badge">Hola, {user?.name || 'Usuario'}</span>
+                            <button
+                                type="button"
+                                className="ghost-btn"
+                                onClick={() => setShowMyReservations(true)}
+                            >
+                                Mis Reservas
+                            </button>
                             <button type="button" className="ghost-btn" onClick={logout}>
                                 Cerrar sesión
                             </button>
@@ -317,6 +333,23 @@ const ClientApp = () => {
                 )}
             </main>
 
+            {/* My Reservations Modal */}
+            {showMyReservations && (
+                <div className="modal-overlay" onClick={() => setShowMyReservations(false)}>
+                    <div className="modal-content modal-content--reservations" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            className="modal-close"
+                            onClick={() => setShowMyReservations(false)}
+                        >
+                            ✕
+                        </button>
+                        <MyReservations
+                            key={myReservationsKey}
+                            onRefresh={handleMyReservationsRefresh}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
