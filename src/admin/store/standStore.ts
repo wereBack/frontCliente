@@ -74,6 +74,12 @@ type StandStore = {
   rectPresetId: string | null
   presets: RectPreset[]
 
+  // Drawing helpers
+  snapToGrid: boolean
+  gridSize: number
+  showGrid: boolean
+  pixelsPerMeter: number
+
   // Plano actions
   setPlanoName: (name: string) => void
   setEventoId: (id: string | null) => void
@@ -100,6 +106,36 @@ type StandStore = {
   undoLast: () => void
   setRectPreset: (id: string | null) => void
   getRectPreset: () => RectPreset | null
+
+  // Validation helpers - Stands
+  getNextStandNumber: () => number
+  isNameDuplicate: (name: string, excludeId?: string) => boolean
+  checkOverlap: (shape: { x: number; y: number; width: number; height: number }, excludeId?: string) => Stand | null
+
+  // Validation helpers - Zones
+  getNextZoneNumber: () => number
+  isZoneNameDuplicate: (name: string, excludeId?: string) => boolean
+  checkZoneOverlap: (shape: { x: number; y: number; width: number; height: number }, excludeId?: string) => Zone | null
+
+  // Drawing helper actions
+  setSnapToGrid: (enabled: boolean) => void
+  setGridSize: (size: number) => void
+  setShowGrid: (show: boolean) => void
+  setPixelsPerMeter: (ppm: number) => void
+  snapPosition: (x: number, y: number) => { x: number; y: number }
+}
+
+// Helper to check if two rectangles overlap
+const rectanglesOverlap = (
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }
+): boolean => {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  )
 }
 
 const DEFAULT_PRESETS: RectPreset[] = [
@@ -161,7 +197,7 @@ const apiToShapeFormat = (data: PlanoData['spaces'][0]): Stand => {
   }
 
   return {
-    id: data.id || crypto.randomUUID(),
+    id: data.id || `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     kind: 'rect',
     x: data.x,
     y: data.y,
@@ -220,6 +256,12 @@ export const useStandStore = create<StandStore>((set, get) => ({
   rectPresetId: 'medium',
   presets: DEFAULT_PRESETS,
 
+  // Drawing helpers - initial values
+  snapToGrid: false,
+  gridSize: 20,
+  showGrid: false,
+  pixelsPerMeter: 80, // 80 pixels = 1 meter
+
   // Plano actions
   setPlanoName: (name) => set({ planoName: name }),
   setEventoId: (id) => set({ eventoId: id }),
@@ -272,7 +314,7 @@ export const useStandStore = create<StandStore>((set, get) => ({
 
       let result: PlanoData
       const isNewPlano = !state.planoId
-      
+
       if (state.planoId) {
         result = await updatePlano(state.planoId, planoData)
       } else {
@@ -406,4 +448,91 @@ export const useStandStore = create<StandStore>((set, get) => ({
   setRectPreset: (id) => set({ rectPresetId: id }),
   getRectPreset: () =>
     get().presets.find((preset) => preset.id === get().rectPresetId) ?? null,
+
+  // Validation helpers
+  getNextStandNumber: () => {
+    const stands = get().stands
+    let maxNum = 0
+    for (const stand of stands) {
+      const match = stand.label?.match(/Stand nuevo (\d+)/)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        if (num > maxNum) maxNum = num
+      }
+    }
+    return maxNum + 1
+  },
+
+  isNameDuplicate: (name, excludeId) => {
+    const stands = get().stands
+    const trimmedName = name.trim().toLowerCase()
+    return stands.some(
+      (stand) => stand.id !== excludeId && stand.label?.trim().toLowerCase() === trimmedName
+    )
+  },
+
+  checkOverlap: (shape, excludeId) => {
+    const stands = get().stands
+    for (const stand of stands) {
+      if (stand.id === excludeId) continue
+      if (stand.kind !== 'rect') continue // Only check rect vs rect for now
+
+      const standRect = { x: stand.x, y: stand.y, width: stand.width, height: stand.height }
+      if (rectanglesOverlap(shape, standRect)) {
+        return stand
+      }
+    }
+    return null
+  },
+
+  // Zone validation helpers
+  getNextZoneNumber: () => {
+    const zones = get().zones
+    let maxNum = 0
+    for (const zone of zones) {
+      const match = zone.label?.match(/Zona nueva (\d+)/)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        if (num > maxNum) maxNum = num
+      }
+    }
+    return maxNum + 1
+  },
+
+  isZoneNameDuplicate: (name, excludeId) => {
+    const zones = get().zones
+    const trimmedName = name.trim().toLowerCase()
+    return zones.some(
+      (zone) => zone.id !== excludeId && zone.label?.trim().toLowerCase() === trimmedName
+    )
+  },
+
+  checkZoneOverlap: (shape, excludeId) => {
+    const zones = get().zones
+    for (const zone of zones) {
+      if (zone.id === excludeId) continue
+      if (zone.kind !== 'rect') continue
+
+      const zoneRect = { x: zone.x, y: zone.y, width: zone.width, height: zone.height }
+      if (rectanglesOverlap(shape, zoneRect)) {
+        return zone
+      }
+    }
+    return null
+  },
+
+  // Drawing helper actions
+  setSnapToGrid: (enabled) => set({ snapToGrid: enabled }),
+  setGridSize: (size) => set({ gridSize: size }),
+  setShowGrid: (show) => set({ showGrid: show }),
+  setPixelsPerMeter: (ppm) => set({ pixelsPerMeter: ppm }),
+
+  snapPosition: (x, y) => {
+    const { snapToGrid, gridSize } = get()
+    if (!snapToGrid) return { x, y }
+    return {
+      x: Math.round(x / gridSize) * gridSize,
+      y: Math.round(y / gridSize) * gridSize,
+    }
+  },
 }))

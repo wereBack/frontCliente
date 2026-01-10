@@ -43,6 +43,13 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
   const setCanvasSize = useStandStore((state) => state.setCanvasSize)
   const canvasWidth = useStandStore((state) => state.canvasWidth)
   const canvasHeight = useStandStore((state) => state.canvasHeight)
+  const getNextStandNumber = useStandStore((state) => state.getNextStandNumber)
+  const checkOverlap = useStandStore((state) => state.checkOverlap)
+  const getNextZoneNumber = useStandStore((state) => state.getNextZoneNumber)
+  const checkZoneOverlap = useStandStore((state) => state.checkZoneOverlap)
+  const showGrid = useStandStore((state) => state.showGrid)
+  const gridSize = useStandStore((state) => state.gridSize)
+  const snapPosition = useStandStore((state) => state.snapPosition)
   const rectPreset = useStandStore((state) => {
     if (!state.rectPresetId) return null
     return state.presets.find((preset) => preset.id === state.rectPresetId) ?? null
@@ -58,13 +65,13 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
 
   // Container size tracking for auto-fit
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 })
-  
+
   // Zoom state
   const [scale, setScale] = useState(1)
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 })
   const [isPanning, setIsPanning] = useState(false)
   const [isSpacePressed, setIsSpacePressed] = useState(false)
-  
+
   const MIN_SCALE = 0.1
   const MAX_SCALE = 5
   const SCALE_STEP = 0.15
@@ -253,17 +260,33 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
     const pointer = stage?.getPointerPosition()
     if (!pointer) return null
     // Adjust for scale and position
-    return {
+    const rawPos = {
       x: (pointer.x - stagePosition.x) / scale,
       y: (pointer.y - stagePosition.y) / scale,
     }
+    // Apply snap to grid if enabled
+    return snapPosition(rawPos.x, rawPos.y)
   }
 
   const commitShape = (shape: Stand | Zone, subject: Subject) => {
     if (subject === 'stand') {
       const stand = shape as Stand
-      let standWithPrice = stand
 
+      // Check for overlap with existing stands (only for rect shapes)
+      if (stand.kind === 'rect') {
+        const overlappingStand = checkOverlap({ x: stand.x, y: stand.y, width: stand.width, height: stand.height })
+        if (overlappingStand) {
+          alert(`¡No se puede crear el stand! Se superpone con "${overlappingStand.label || 'otro stand'}"`)
+          resetDrafts()
+          return
+        }
+      }
+
+      // Auto-assign label "Stand nuevo X"
+      const nextNum = getNextStandNumber()
+      let standWithLabel = { ...stand, label: `Stand nuevo ${nextNum}` }
+
+      // Check if inside a zone to inherit price
       if (stand.kind === 'rect') {
         const standCenterX = stand.x + stand.width / 2
         const standCenterY = stand.y + stand.height / 2
@@ -277,16 +300,32 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
               standCenterY <= zone.y + zone.height
 
             if (isInside && zone.price != null) {
-              standWithPrice = { ...stand, price: zone.price }
+              standWithLabel = { ...standWithLabel, price: zone.price }
               break
             }
           }
         }
       }
 
-      addStand(standWithPrice)
+      addStand(standWithLabel)
     } else {
-      addZone(shape as Zone)
+      const zone = shape as Zone
+
+      // Check for overlap with existing zones (only for rect shapes)
+      if (zone.kind === 'rect') {
+        const overlappingZone = checkZoneOverlap({ x: zone.x, y: zone.y, width: zone.width, height: zone.height })
+        if (overlappingZone) {
+          alert(`¡No se puede crear la zona! Se superpone con "${overlappingZone.label || 'otra zona'}"`)
+          resetDrafts()
+          return
+        }
+      }
+
+      // Auto-assign label "Zona nueva X"
+      const nextZoneNum = getNextZoneNumber()
+      const zoneWithLabel = { ...zone, label: `Zona nueva ${nextZoneNum}` }
+
+      addZone(zoneWithLabel)
     }
     resetDrafts()
   }
@@ -316,7 +355,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
         if (nextPoints.length >= 6) {
           commitShape(
             {
-              id: crypto.randomUUID(),
+              id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
               kind: 'polygon',
               points: nextPoints,
               color,
@@ -374,7 +413,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
         commitShape(
           {
             ...rectDraft,
-            id: crypto.randomUUID(),
+            id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           },
           draftContext.subject,
         )
@@ -387,7 +426,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
       setIsFreeDrawing(false)
       if (freePoints.length >= 6) {
         const freeShape: FreeShape = {
-          id: crypto.randomUUID(),
+          id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
           kind: 'free',
           points: freePoints,
           color,
@@ -633,6 +672,34 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
               listening={false}
             />
           )}
+
+          {/* Grid Overlay */}
+          {showGrid && (
+            <>
+              {/* Vertical lines */}
+              {Array.from({ length: Math.ceil(canvasWidth / gridSize) + 1 }, (_, i) => (
+                <Line
+                  key={`v-${i}`}
+                  points={[i * gridSize, 0, i * gridSize, canvasHeight]}
+                  stroke="#94a3b8"
+                  strokeWidth={0.5}
+                  opacity={0.5}
+                  listening={false}
+                />
+              ))}
+              {/* Horizontal lines */}
+              {Array.from({ length: Math.ceil(canvasHeight / gridSize) + 1 }, (_, i) => (
+                <Line
+                  key={`h-${i}`}
+                  points={[0, i * gridSize, canvasWidth, i * gridSize]}
+                  stroke="#94a3b8"
+                  strokeWidth={0.5}
+                  opacity={0.5}
+                  listening={false}
+                />
+              ))}
+            </>
+          )}
         </Layer>
 
         <Layer>
@@ -678,7 +745,7 @@ const StandCanvas = ({ backgroundSrc }: StandCanvasProps) => {
           )}
         </Layer>
       </Stage>
-      
+
       <CanvasControls
         scale={scale}
         onZoomIn={zoomIn}

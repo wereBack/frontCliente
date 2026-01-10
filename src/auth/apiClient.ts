@@ -18,15 +18,31 @@ export interface RequestOptions extends Omit<RequestInit, 'headers'> {
  */
 async function getAccessToken(): Promise<string | null> {
     if (!keycloak.authenticated) {
+        console.warn('Keycloak no está autenticado');
         return null;
     }
 
     try {
         // Refrescar token si expira en menos de 30 segundos
-        await keycloak.updateToken(30);
-        return keycloak.token || null;
+        const refreshed = await keycloak.updateToken(30);
+        if (refreshed) {
+            console.log('Token refrescado exitosamente');
+        }
+
+        if (!keycloak.token) {
+            console.warn('Token de keycloak es null después de updateToken');
+            return null;
+        }
+
+        return keycloak.token;
     } catch (error) {
-        console.error('Error al refrescar token:', error);
+        console.error('Error al refrescar token, intentando re-login:', error);
+        // Si falla el refresh, intentar re-autenticar
+        try {
+            await keycloak.login();
+        } catch (loginError) {
+            console.error('Error en re-login:', loginError);
+        }
         return null;
     }
 }

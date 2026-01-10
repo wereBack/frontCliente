@@ -8,6 +8,7 @@ const ZoneList = () => {
     const updateZone = useStandStore((state) => state.updateZone)
     const removeZone = useStandStore((state) => state.removeZone)
     const replaceZoneId = useStandStore((state) => state.replaceZoneId)
+    const isZoneNameDuplicate = useStandStore((state) => state.isZoneNameDuplicate)
 
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [editValues, setEditValues] = useState<{ name: string; price: string; color: string }>({ name: '', price: '', color: '#ffb703' })
@@ -60,17 +61,23 @@ const ZoneList = () => {
 
     // Save changes
     const handleSave = async (zone: Zone) => {
+        // Check for duplicate name
+        if (editValues.name && isZoneNameDuplicate(editValues.name, zone.id)) {
+            alert(`¡El nombre "${editValues.name}" ya está en uso por otra zona!`)
+            return
+        }
+
         const updates = {
             label: editValues.name,
             price: editValues.price ? parseFloat(editValues.price) : undefined,
             color: editValues.color,
         }
         updateZone(zone.id, updates)
-        
+
         // Check if UUID (saved in DB)
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(zone.id)
         setIsSaving(true)
-        
+
         try {
             if (isUUID) {
                 // Update existing zone
@@ -86,7 +93,7 @@ const ZoneList = () => {
                     setIsSaving(false)
                     return
                 }
-                
+
                 // Build create data based on zone type
                 const createData: Parameters<typeof apiCreateZone>[0] = {
                     plano_id: planoId,
@@ -99,7 +106,7 @@ const ZoneList = () => {
                     name: editValues.name || 'Nueva Zona',
                     price: editValues.price ? parseFloat(editValues.price) : null,
                 }
-                
+
                 // Add points for polygon/free shapes
                 if ('points' in zone) {
                     createData.points = zone.points
@@ -111,7 +118,7 @@ const ZoneList = () => {
                     createData.width = Math.max(...xs) - createData.x
                     createData.height = Math.max(...ys) - createData.y
                 }
-                
+
                 const created = await apiCreateZone(createData)
                 // Replace local ID with backend UUID
                 if (created.id) {
@@ -130,10 +137,10 @@ const ZoneList = () => {
     // Delete zone
     const handleDelete = async (zoneId: string) => {
         if (!confirm('¿Eliminar esta zona?')) return
-        
+
         // Check if UUID (saved in DB)
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(zoneId)
-        
+
         if (isUUID) {
             setIsDeleting(zoneId)
             try {
@@ -146,7 +153,7 @@ const ZoneList = () => {
             }
             setIsDeleting(null)
         }
-        
+
         // Remove from local store
         removeZone(zoneId)
         if (expandedId === zoneId) {

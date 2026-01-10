@@ -49,6 +49,11 @@ export interface ReservationData {
     asignee?: string;
     user_id?: string;
     expires_at?: string;
+    client_profile?: {
+        company: string | null;
+        linkedin: string | null;
+        email: string | null;
+    };
 }
 
 export interface EventoData {
@@ -119,4 +124,37 @@ export async function blockSpace(spaceId: string): Promise<SpaceData> {
 
 export async function unblockSpace(spaceId: string): Promise<SpaceData> {
     return api.patch<SpaceData>(`/spaces/${spaceId}/desbloquear`);
+}
+
+// ==================== USER PROFILE API ====================
+
+export interface UserProfileData {
+    id?: string;
+    user_id?: string;
+    email: string | null;
+    phone: string | null;
+    linkedin: string | null;
+    company: string | null;
+    position: string | null;
+    notes: string | null;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface ProfileResponse {
+    status: string;
+    profile: UserProfileData;
+    is_complete: boolean;
+}
+
+export async function fetchUserProfile(): Promise<ProfileResponse> {
+    return api.get<ProfileResponse>('/api/user-profiles/me');
+}
+
+export async function updateUserProfile(data: Partial<UserProfileData>): Promise<ProfileResponse> {
+    return api.put<ProfileResponse>('/api/user-profiles/me', data);
+}
+
+export async function checkProfileComplete(): Promise<{ is_complete: boolean; missing_fields: string[] }> {
+    return api.get<{ status: string; is_complete: boolean; missing_fields: string[] }>('/api/user-profiles/me/complete');
 }

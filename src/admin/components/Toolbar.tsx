@@ -36,6 +36,14 @@ const Toolbar = () => {
   const planoId = useStandStore((state) => state.planoId)
   const planoName = useStandStore((state) => state.planoName)
 
+  // Grid controls
+  const snapToGrid = useStandStore((state) => state.snapToGrid)
+  const setSnapToGrid = useStandStore((state) => state.setSnapToGrid)
+  const showGrid = useStandStore((state) => state.showGrid)
+  const setShowGrid = useStandStore((state) => state.setShowGrid)
+  const gridSize = useStandStore((state) => state.gridSize)
+  const setGridSize = useStandStore((state) => state.setGridSize)
+
   const hasShapes = stands.length + zones.length > 0
   const currentTools = toolbarMode === 'stands' ? STAND_TOOLS : ZONE_TOOLS
   const isEditingArea = planoId || planoName
@@ -151,6 +159,46 @@ const Toolbar = () => {
           </div>
         </div>
       )}
+
+      {/* Grid Controls Section */}
+      <div className="toolbar-section">
+        <h4 className="toolbar-section__title">📐 Grilla y Alineación</h4>
+
+        <div className="toolbar-grid-controls">
+          <label className="toolbar-toggle">
+            <input
+              type="checkbox"
+              checked={snapToGrid}
+              onChange={(e) => setSnapToGrid(e.target.checked)}
+            />
+            <span className="toolbar-toggle__label">Snap a grilla</span>
+          </label>
+
+          <label className="toolbar-toggle">
+            <input
+              type="checkbox"
+              checked={showGrid}
+              onChange={(e) => setShowGrid(e.target.checked)}
+            />
+            <span className="toolbar-toggle__label">Mostrar grilla</span>
+          </label>
+
+          <div className="toolbar-grid-size">
+            <span className="toolbar-grid-size__label">Tamaño:</span>
+            <div className="toolbar-grid-size__buttons">
+              {[10, 20, 50].map((size) => (
+                <button
+                  key={size}
+                  className={`toolbar-grid-size__btn ${gridSize === size ? 'toolbar-grid-size__btn--active' : ''}`}
+                  onClick={() => setGridSize(size)}
+                >
+                  {size}px
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Background Image Section */}
       {isEditingArea && (

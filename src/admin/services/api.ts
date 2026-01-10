@@ -129,6 +129,15 @@ interface ReservationResponse {
     reservation: ReservationData;
 }
 
+interface ConfirmReservationResponse extends ReservationResponse {
+    updated_space_name?: string;
+}
+
+export interface ConfirmReservationResult {
+    reservation: ReservationData;
+    updatedSpaceName?: string;
+}
+
 export async function fetchPendingReservations(): Promise<ReservationData[]> {
     const data = await api.get<PendingReservationsResponse>('/api/reservas/pending');
     return data.reservations;
@@ -138,9 +147,12 @@ export async function fetchReservationStatus(id: string): Promise<ReservationSta
     return api.get<ReservationStatus>(`/api/reservas/${id}/status`);
 }
 
-export async function confirmReservation(id: string): Promise<ReservationData> {
-    const data = await api.post<ReservationResponse>(`/api/reservas/${id}/confirm`);
-    return data.reservation;
+export async function confirmReservation(id: string): Promise<ConfirmReservationResult> {
+    const data = await api.post<ConfirmReservationResponse>(`/api/reservas/${id}/confirm`);
+    return {
+        reservation: data.reservation,
+        updatedSpaceName: data.updated_space_name
+    };
 }
 
 export async function rejectReservation(id: string): Promise<ReservationData> {
@@ -242,4 +254,21 @@ export interface SpaceWithReservation {
 
 export async function fetchSpaces(): Promise<SpaceWithReservation[]> {
     return api.get<SpaceWithReservation[]>('/spaces/', { skipAuth: true });
+}
+
+// ==================== USER PROFILES ====================
+
+export interface UserProfileData {
+    user_id: string;
+    email: string | null;
+    phone: string | null;
+    linkedin: string | null;
+    company: string | null;
+    position: string | null;
+    notes: string | null;
+}
+
+export async function fetchUserProfileById(userId: string): Promise<UserProfileData> {
+    const response = await api.get<{ profile: UserProfileData }>(`/api/user-profiles/by-id/${userId}`);
+    return response.profile;
 }

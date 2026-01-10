@@ -509,6 +509,72 @@
   background: #fee2e2;
 }
 
+/* ==================== GRID CONTROLS ==================== */
+.toolbar-grid-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.toolbar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.toolbar-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--um-blue);
+}
+
+.toolbar-toggle__label {
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.toolbar-grid-size {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.toolbar-grid-size__label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.toolbar-grid-size__buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.toolbar-grid-size__btn {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #64748b;
+}
+
+.toolbar-grid-size__btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.toolbar-grid-size__btn--active {
+  background: #dbeafe;
+  border-color: var(--um-blue);
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
 /* ==================== INSPECTOR ==================== */
 .admin-inspector__section {
   padding: 1rem;
@@ -899,12 +965,29 @@
 
 .pending-reservations__item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.65rem 0.75rem;
+  flex-direction: column;
+  padding: 0;
   background: #fffbeb;
   border: 1px solid #fde68a;
   border-radius: 8px;
+  overflow: hidden;
+}
+
+.pending-reservations__item--expanded {
+  border-color: #f59e0b;
+}
+
+.pending-reservations__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pending-reservations__header:hover {
+  background: #fef3c7;
 }
 
 .pending-reservations__info {
@@ -949,6 +1032,50 @@
 .pending-reservations__btn--reject {
   background: #fee2e2;
   color: #dc2626;
+}
+
+.pending-reservations__details {
+  padding: 0.65rem 0.75rem;
+  background: #fefce8;
+  border-top: 1px dashed #fde68a;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pending-reservations__details-loading {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-style: italic;
+  margin: 0;
+}
+
+.pending-reservations__detail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.pending-reservations__detail-label {
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.pending-reservations__detail a {
+  color: var(--um-blue);
+  text-decoration: none;
+}
+
+.pending-reservations__detail a:hover {
+  text-decoration: underline;
+}
+
+.pending-reservations__no-profile {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0;
 }
 
 /* ==================== HEADER SELECTOR (Compacto) ==================== */
@@ -2853,4 +2980,57 @@
 
 .zone-list-item__btn--delete:hover {
   background: #fecaca;
+}
+
+/* ==================== TOAST NOTIFICATIONS ==================== */
+.toast-notification {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  animation: toast-slide-up 0.3s ease-out;
+}
+
+.toast-notification--success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.toast-notification--error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.toast-notification--fade-out {
+  animation: toast-fade-out 0.3s ease-out forwards;
+}
+
+@keyframes toast-slide-up {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes toast-fade-out {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
 }

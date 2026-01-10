@@ -19,6 +19,10 @@ const EventSelector = ({ selectedEventoId, onSelectEvento }: EventSelectorProps)
         try {
             const data = await fetchEventos();
             setEventos(data);
+            // Auto-select first event if none selected and events exist
+            if (data.length > 0 && !selectedEventoId) {
+                onSelectEvento(data[0].id);
+            }
         } catch (error) {
             console.error('Error cargando eventos', error);
         } finally {
@@ -31,7 +35,11 @@ const EventSelector = ({ selectedEventoId, onSelectEvento }: EventSelectorProps)
     }
 
     if (eventos.length === 0) {
-        return null;
+        return (
+            <div className="event-selector event-selector--empty">
+                <span className="event-selector__empty-message">No hay eventos disponibles</span>
+            </div>
+        );
     }
 
     return (
@@ -45,7 +53,6 @@ const EventSelector = ({ selectedEventoId, onSelectEvento }: EventSelectorProps)
                 value={selectedEventoId || ''}
                 onChange={(e) => onSelectEvento(e.target.value || null)}
             >
-                <option value="">Todos los eventos</option>
                 {eventos.map((evento) => (
                     <option key={evento.id} value={evento.id}>
                         {evento.nombre}

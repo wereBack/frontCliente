@@ -2,11 +2,12 @@ import { useState, useMemo, useCallback } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { usePlanos } from './hooks/usePlanos'
 import { useReservationSocket } from './hooks/useReservationSocket'
-import { createReservation } from './services/api'
+import { createReservation, checkProfileComplete } from './services/api'
 import PlanoMap from './components/PlanoMap'
 import Legend from './components/Legend'
 import EventSelector from './components/EventSelector'
 import MyReservations from './components/MyReservations'
+import UserProfile from './components/UserProfile'
 import {
     getSpaceStatus,
     getEffectivePrice,
@@ -25,6 +26,7 @@ const ClientApp = () => {
     const [statusFilter, setStatusFilter] = useState<string>('todos')
     const [myReservationsKey, setMyReservationsKey] = useState(0)
     const [showMyReservations, setShowMyReservations] = useState(false)
+    const [showUserProfile, setShowUserProfile] = useState(false)
 
     // WebSocket para actualización en tiempo real
     const handleSocketChange = useCallback(() => {
@@ -70,12 +72,27 @@ const ClientApp = () => {
         if (!selectedSpaceId || !user) return
         setIsReserving(true)
         try {
+            // Verificar primero que el perfil esté completo
+            const profileCheck = await checkProfileComplete()
+            if (!profileCheck.is_complete) {
+                setShowUserProfile(true)
+                alert('Por favor completa tu perfil antes de hacer una reserva. El email es obligatorio.')
+                setIsReserving(false)
+                return
+            }
+
             await createReservation(selectedSpaceId, user.username)
             await refetch()
             setMyReservationsKey(prev => prev + 1) // Refresh my reservations
             alert('¡Solicitud enviada! Tu reserva está pendiente de confirmación por el administrador.')
-        } catch (error) {
-            alert(error instanceof Error ? error.message : 'Error al reservar')
+        } catch (error: unknown) {
+            const err = error as { code?: string; message?: string }
+            if (err.code === 'PROFILE_INCOMPLETE') {
+                setShowUserProfile(true)
+                alert('Por favor completa tu perfil antes de hacer una reserva.')
+            } else {
+                alert(err.message || 'Error al reservar')
+            }
         } finally {
             setIsReserving(false)
         }
@@ -109,6 +126,13 @@ const ClientApp = () => {
                     {isAuthenticated ? (
                         <>
                             <span className="user-badge">Hola, {user?.name || 'Usuario'}</span>
+                            <button
+                                type="button"
+                                className="ghost-btn ghost-btn--accent"
+                                onClick={() => setShowUserProfile(true)}
+                            >
+                                Mi Perfil
+                            </button>
                             <button
                                 type="button"
                                 className="ghost-btn"
@@ -244,11 +268,42 @@ const ClientApp = () => {
                                                     ⏳ Reserva pendiente de confirmación por el administrador
                                                 </div>
                                             )}
-                                            {selectedSpaceStatus === 'reservado' && (
-                                                <div className="status-message status-message--reserved">
-                                                    ✓ Este stand ya fue reservado
-                                                </div>
-                                            )}
+                                            {selectedSpaceStatus === 'reservado' && (() => {
+                                                // Obtener el perfil del cliente de la reserva activa
+                                                const activeReservation = selectedSpace.reservations?.find(
+                                                    r => r.estado === 'RESERVED'
+                                                )
+                                                const clientProfile = activeReservation?.client_profile
+
+                                                return (
+                                                    <div className="status-message status-message--reserved">
+                                                        <div className="status-message__title">✓ Este stand ya fue reservado</div>
+                                                        {clientProfile && (clientProfile.company || clientProfile.linkedin) && (
+                                                            <div className="client-info">
+                                                                {clientProfile.company && (
+                                                                    <div className="client-info__item">
+                                                                        <span className="client-info__label">🏢 Empresa:</span>
+                                                                        <span className="client-info__value">{clientProfile.company}</span>
+                                                                    </div>
+                                                                )}
+                                                                {clientProfile.linkedin && (
+                                                                    <div className="client-info__item">
+                                                                        <span className="client-info__label">💼 LinkedIn:</span>
+                                                                        <a
+                                                                            href={clientProfile.linkedin}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="client-info__link"
+                                                                        >
+                                                                            Ver perfil
+                                                                        </a>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })()}
                                             {selectedSpaceStatus === 'bloqueado' && (
                                                 <div className="status-message status-message--blocked">
                                                     ✕ Este stand no está disponible
@@ -346,6 +401,26 @@ const ClientApp = () => {
                         <MyReservations
                             key={myReservationsKey}
                             onRefresh={handleMyReservationsRefresh}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* User Profile Modal */}
+            {showUserProfile && (
+                <div className="modal-overlay" onClick={() => setShowUserProfile(false)}>
+                    <div className="modal-content modal-content--profile" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            className="modal-close"
+                            onClick={() => setShowUserProfile(false)}
+                        >
+                            ✕
+                        </button>
+                        <UserProfile
+                            onClose={() => setShowUserProfile(false)}
+                            onSave={() => {
+                                // Profile saved, keep modal open to show success
+                            }}
                         />
                     </div>
                 </div>

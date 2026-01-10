@@ -9,6 +9,19 @@ const STATUS_OPTIONS: { value: ReservationState; label: string; color: string }[
     { value: 'BLOCKED', label: 'Bloqueado', color: '#9ca3af' },
 ]
 
+// Simple toast notification
+const showToast = (message: string) => {
+    const toast = document.createElement('div')
+    toast.className = 'toast-notification toast-notification--success'
+    toast.textContent = message
+    document.body.appendChild(toast)
+
+    setTimeout(() => {
+        toast.classList.add('toast-notification--fade-out')
+        setTimeout(() => toast.remove(), 300)
+    }, 2500)
+}
+
 const StandList = () => {
     const stands = useStandStore((state) => state.stands)
     const selectedStandId = useStandStore((state) => state.selectedStandId)
@@ -17,6 +30,7 @@ const StandList = () => {
     const updateStand = useStandStore((state) => state.updateStand)
     const removeStand = useStandStore((state) => state.removeStand)
     const replaceStandId = useStandStore((state) => state.replaceStandId)
+    const isNameDuplicate = useStandStore((state) => state.isNameDuplicate)
 
     const [expandedId, setExpandedId] = useState<string | null>(null)
     const [editValues, setEditValues] = useState<{ name: string; price: string; status: ReservationState }>({ name: '', price: '', status: 'AVAILABLE' })
@@ -84,6 +98,12 @@ const StandList = () => {
 
     // Save changes
     const handleSave = async (stand: Stand) => {
+        // Check for duplicate name
+        if (editValues.name && isNameDuplicate(editValues.name, stand.id)) {
+            alert(`¡El nombre "${editValues.name}" ya está en uso por otro stand!`)
+            return
+        }
+
         const updates = {
             label: editValues.name,
             price: parseFloat(editValues.price) || 0,
@@ -94,7 +114,7 @@ const StandList = () => {
         // Check if UUID (saved in DB)
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(stand.id)
         setIsSaving(true)
-        
+
         try {
             if (isUUID) {
                 // Update existing stand
@@ -103,6 +123,7 @@ const StandList = () => {
                     price: parseFloat(editValues.price) || null,
                     status: editValues.status,
                 })
+                showToast(`✅ Stand "${editValues.name}" guardado correctamente`)
             } else {
                 // Create new stand
                 if (!planoId) {
@@ -110,7 +131,7 @@ const StandList = () => {
                     setIsSaving(false)
                     return
                 }
-                
+
                 // Build create data based on stand type
                 const createData: Parameters<typeof apiCreateSpace>[0] = {
                     plano_id: planoId,
@@ -123,7 +144,7 @@ const StandList = () => {
                     name: editValues.name || 'Nuevo Stand',
                     price: parseFloat(editValues.price) || null,
                 }
-                
+
                 // Add points for polygon/free shapes
                 if ('points' in stand) {
                     createData.points = stand.points
@@ -135,13 +156,14 @@ const StandList = () => {
                     createData.width = Math.max(...xs) - createData.x
                     createData.height = Math.max(...ys) - createData.y
                 }
-                
+
                 const created = await apiCreateSpace(createData)
                 // Replace local ID with backend UUID
                 if (created.id) {
                     replaceStandId(stand.id, created.id)
                     setExpandedId(created.id)
                 }
+                showToast(`✅ Stand "${editValues.name || 'Nuevo Stand'}" creado correctamente`)
             }
         } catch (e) {
             console.error('Error saving stand:', e)
@@ -154,10 +176,10 @@ const StandList = () => {
     // Delete stand
     const handleDelete = async (standId: string) => {
         if (!confirm('¿Eliminar este stand?')) return
-        
+
         // Check if UUID (saved in DB)
         const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(standId)
-        
+
         if (isUUID) {
             setIsDeleting(standId)
             try {
@@ -170,7 +192,7 @@ const StandList = () => {
             }
             setIsDeleting(null)
         }
-        
+
         // Remove from local store
         removeStand(standId)
         if (expandedId === standId) {
